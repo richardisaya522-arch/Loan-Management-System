@@ -112,14 +112,24 @@ APPROVED = " WHERE l.decision = 'approved'"
 
 
 # ---------- Database ----------
+def _pragmas(db):
+    db.execute("PRAGMA foreign_keys = ON")
+    db.execute("PRAGMA busy_timeout = 5000")    # subiri badala ya 'database is locked'
+    db.execute("PRAGMA synchronous = NORMAL")
+    # WAL ni bora kwenye disk ya kawaida. Kwenye host yenye network filesystem
+    # (mfano PythonAnywhere), SQLite WAL haifanyi kazi — weka DB_JOURNAL=DELETE.
+    if os.environ.get("DB_JOURNAL", "WAL").upper() == "WAL":
+        try:
+            db.execute("PRAGMA journal_mode = WAL")   # wasomaji/wandishi sambamba
+        except sqlite3.Error:
+            pass
+
+
 def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH, timeout=10)
         g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
-        g.db.execute("PRAGMA journal_mode = WAL")     # wasomaji/wandishi sambamba
-        g.db.execute("PRAGMA busy_timeout = 5000")    # subiri badala ya 'database is locked'
-        g.db.execute("PRAGMA synchronous = NORMAL")
+        _pragmas(g.db)
     return g.db
 
 
@@ -181,8 +191,7 @@ def restore_db(name):
 
 def init_db():
     db = sqlite3.connect(DB_PATH)
-    db.execute("PRAGMA journal_mode = WAL")
-    db.execute("PRAGMA busy_timeout = 5000")
+    _pragmas(db)
     db.executescript(SCHEMA)
     for table, cols in MIGRATIONS.items():
         have = {r[1] for r in db.execute(f"PRAGMA table_info({table})")}

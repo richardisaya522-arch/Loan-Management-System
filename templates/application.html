@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block content %}
+<a href="{{ url_for('me') }}" class="text-decoration-none">&larr; Rudi</a>
+<div class="card p-4 mt-3" style="max-width:560px">
+  <h4>Ombi #{{ l.id }} {{ badge('review' if l.decision == 'pending' else 'rejected') }}</h4>
+  <div class="d-flex justify-content-between border-bottom py-2"><span>Kiasi</span><b>{{ l.principal|tzs }}</b></div>
+  <div class="d-flex justify-content-between border-bottom py-2"><span>Muda</span><b>{{ l.months }} miezi</b></div>
+  <div class="d-flex justify-content-between border-bottom py-2"><span>Matumizi</span><b>{{ l.purpose or '-' }}</b></div>
+  <div class="d-flex justify-content-between py-2"><span>Tarehe ya ombi</span><b>{{ (l.applied_at or '')[:10] }}</b></div>
+  {% if l.decision == 'pending' %}<div class="alert alert-warning mb-0 mt-2">Ombi lako linakaguliwa. Rudi baadaye kuona uamuzi.</div>
+  {% else %}<div class="alert alert-danger mb-0 mt-2">Ombi lako halikukubaliwa.{% if l.review_note %} Sababu: {{ l.review_note }}{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

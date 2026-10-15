@@ -1,0 +1,95 @@
+<div class="p-3 p-lg-4 bg-body-tertiary border-start border-4 border-warning">
+  <div class="text-center mb-4 pb-3 border-bottom">
+    <em class="fst-italic fw-semibold small d-block" style="letter-spacing:.05em">ANTHONY MICROFINANCE</em>
+    <h5 class="mb-1 fw-bold">MKATABA WA KUKOPESHA FEDHA KWA RIBA</h5>
+    <div class="text-muted small">Mkataba wa mkopo #{{ l.id }} &middot; mteja: {{ l.customer }}</div>
+  </div>
+
+  <div class="alert alert-info py-2 px-3 small">
+    <b>Mhesabiyo:</b> mkopo <b>{{ l.principal|tzs }}</b> &middot; riba <b>{{ l.interest|tzs }}</b>
+    ({{ l.rate }}% x {{ l.months }} miezi) &middot; jumla ya kulipa <b>{{ l.total|tzs }}</b>
+    &middot; kila mwezi <b>{{ l.installment|tzs }}</b>
+  </div>
+
+  <form method="post" action="{{ url_for('sign_agreement', lid=l.id) }}" class="row g-3">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <div class="col-md-4">
+      <label class="form-label small" for="place{{ l.id }}">Mahali ulipokazia mkataba</label>
+      <input class="form-control" id="place{{ l.id }}" name="place" placeholder="Mfano: Dar es Salaam" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small" for="signed_on{{ l.id }}">Tarehe ya kusaini</label>
+      <input class="form-control" type="date" id="signed_on{{ l.id }}" name="signed_on"
+             value="{{ today }}" max="{{ today }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small">Mwezi / Mwaka</label>
+      <input class="form-control" value="Mtumia tarehe hapo juu" readonly disabled>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label small" for="bw{{ l.id }}">Jina la SHAHIDI WA MKOPAJI</label>
+      <input class="form-control" id="bw{{ l.id }}" name="borrower_witness"
+             placeholder="Jina kamili la shahidi wako" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small" for="bs{{ l.id }}">SAHIHI ya MKOPAJI (andika jina lako)</label>
+      <input class="form-control" id="bs{{ l.id }}" name="borrower_sign"
+             placeholder="Andika jina lako kama saini" required>
+      <div class="form-text">Lazima liwe kama jina lako lililo kwenye akaunti: {{ l.customer }}</div>
+    </div>
+
+    <div class="col-12"><hr class="my-1"><div class="form-section">Mdhamini</div></div>
+    <div class="col-md-4">
+      <label class="form-label small">Jina la MDHAMINI</label>
+      <input class="form-control" value="{{ l.guarantor_name or 'Hakuna kwenye profile' }}" readonly disabled>
+      {% if not l.guarantor_name %}
+      <div class="form-text text-warning"><a href="{{ url_for('profile') }}">Ongeza mdhamini kwenye profile</a> ili jina lithibitike.</div>
+      {% endif %}
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small" for="gs{{ l.id }}">SAHIHI ya MDHAMINI (andika jina lake)</label>
+      <input class="form-control" id="gs{{ l.id }}" name="guarantor_sign"
+             placeholder="Andika jina la mdhamini kama saini" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small" for="gw{{ l.id }}">Jina la SHAHIDI WA MDHAMINI</label>
+      <input class="form-control" id="gw{{ l.id }}" name="guarantor_witness"
+             placeholder="Jina kamili la shahidi wa mdhamini" required>
+    </div>
+
+    <div class="col-12">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="accept" id="accept{{ l.id }}" required>
+        <label class="form-check-label small" for="accept{{ l.id }}">
+          <b>Nakubali na kukubaliana</b> na masharti yote ya mkataba huu (vipindi a hadi f),
+          ikiwa ni pamoja na sheria za Jamhuri ya Muungano wa Tanzania.
+        </label>
+      </div>
+    </div>
+
+    <div class="col-12 d-flex gap-2">
+      <button class="btn btn-warning" type="submit">
+        <i class="bi bi-pen"></i> Weka saini na kuhifadhi mkataba
+      </button>
+      <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse"
+              data-bs-target="#agr{{ l.id }}">Ghairi</button>
+    </div>
+  </form>
+
+  <details class="mt-3">
+    <summary class="text-muted small" style="cursor:pointer">Soma masharti (vipindi a - f)</summary>
+    <ol class="small text-muted mt-2 mb-0 ps-3">
+      <li class="mb-1"><b>MKOPAJI</b> amekopa fedha kiasi cha <b>{{ l.principal|tzs }}</b>, ambapo ameahidi kulipa
+        fedha hizo kiasi cha <b>{{ l.total|tzs }}</b> kwa muda wa <b>{{ l.months }} miezi</b>,
+        ifikapo tarehe <b>{{ l.rows[-1].due.strftime('%d %B %Y') }}</b>.</li>
+      <li class="mb-1"><b>MKOPAJI</b> ana wajibu wa kumtafuta <b>MKOPESHAJI</b> wake mara anapohitaji kurudisha
+        deni lake, na si vinginevyo.</li>
+      <li class="mb-1"><b>MKOPAJI</b> ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
+      <li class="mb-1">Kwa kuweka saini <b>MKOPAJI</b> anakiri kukubaliana na utaratibu huu.</li>
+      <li class="mb-1">Kwamba <b>MKOPAJI</b> kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
+      <li class="mb-1">Kwamba mnkataba huu unatalsiriwa na sheria za <b>JAMHURI YA MUUNGANO WA TANZANIA</b>,
+        na kwamba upande wowote utakaovunja mkataba huu, hatua kali za kisheria vitachuliwa dhidi yake.</li>
+    </ol>
+  </details>
+</div>

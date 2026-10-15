@@ -1,0 +1,21 @@
+# Siri na data (USIPANDE hivi GitHub)
+.secret_key
+loans.db
+loans.db-wal
+loans.db-shm
+backups/
+server.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Mhariri / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

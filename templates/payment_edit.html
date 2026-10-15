@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Rekebisha malipo | ANTHONY MICROFINANCE{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <a href="{{ url_for('loan', lid=p.loan_id) }}" class="text-decoration-none">&larr; Mkopo #{{ p.loan_id }}</a>
+    <div class="card p-4 mt-3">
+      <h4 class="fw-bold mb-1">Rekebisha malipo</h4>
+      <p class="text-muted small mb-4">Risiti <b>RCP-{{ '%05d' % p.id }}</b> &middot;
+        Mteja: <b>{{ p.name }}</b> &middot; Mkopo #{{ p.loan_id }}</p>
+
+      <div class="row g-2 small mb-4">
+        <div class="col-6 col-md-3"><div class="text-muted">Kiasi cha awali</div><div class="fw-semibold">{{ p.amount|tzs }}</div></div>
+        <div class="col-6 col-md-3"><div class="text-muted">Jumla ya mkopo</div><div class="fw-semibold">{{ info.total|tzs }}</div></div>
+        <div class="col-6 col-md-3"><div class="text-muted">Kimelipwa</div><div class="fw-semibold">{{ info.paid|tzs }}</div></div>
+        <div class="col-6 col-md-3"><div class="text-muted">Lililobaki</div><div class="fw-semibold">{{ info.balance|tzs }}</div></div>
+      </div>
+
+      <form method="post" novalidate>
+        <input type="hidden" name="csrf" value="{{ csrf() }}">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="amount">Kiasi (TZS)</label>
+            <input class="form-control {{ 'is-invalid' if e.get('amount') }}" type="number" min="1"
+                   id="amount" name="amount" value="{{ p.amount }}" required>
+            <div class="invalid-feedback">{{ e.get('amount') or '' }}</div>
+          </div>
+          <div class="mb-3 col-md-6"></div>
+          <div class="col-md-6">
+            <label class="form-label" for="paid_on">Tarehe ya malipo</label>
+            <input class="form-control {{ 'is-invalid' if e.get('paid_on') }}" type="date"
+                   id="paid_on" name="paid_on" value="{{ p.paid_on }}" required>
+            <div class="invalid-feedback">{{ e.get('paid_on') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="method">Njia ya malipo</label>
+            <select class="form-select {{ 'is-invalid' if e.get('method') }}" id="method" name="method">
+              {% for m in methods %}<option {{ 'selected' if m == p.method }}>{{ m }}</option>{% endfor %}
+            </select>
+            <div class="invalid-feedback">{{ e.get('method') or '' }}</div>
+          </div>
+        </div>
+        <div class="mb-4 mt-3">
+          <label class="form-label" for="note">Maelezo (hiari)</label>
+          <input class="form-control" id="note" name="note" value="{{ p.note or '' }}" maxlength="200">
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Hifadhi mabadiliko</button>
+          <a class="btn btn-outline-secondary" href="{{ url_for('loan', lid=p.loan_id) }}">Ghairi</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

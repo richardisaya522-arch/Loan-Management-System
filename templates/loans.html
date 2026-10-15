@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+  <h3 class="mb-0">Mikopo</h3>
+</div>
+<div class="mb-3 d-flex flex-wrap gap-2">
+  {% for v, t in [('', 'Yote'), ('active', 'Hai'), ('overdue', 'Iliyochelewa'), ('completed', 'Iliyokamilika')] %}
+  <a class="btn btn-sm {{ 'btn-primary' if status == v else 'btn-outline-primary' }}" href="{{ url_for('loans', status=v) }}">{{ t }}</a>{% endfor %}
+</div>
+<div class="card p-3">
+  {% if rows %}<div class="table-responsive"><table class="table table-hover align-middle mb-0">
+    <thead><tr><th>#</th><th>Mteja</th><th>Kiasi</th><th>Jumla</th><th>Kimelipwa</th><th>Lililobaki</th><th>Hali</th><th></th></tr></thead>
+    {% for l in rows %}<tr><td>{{ l.id }}</td><td>{{ l.customer }}</td><td>{{ l.principal|tzs }}</td><td>{{ l.total|tzs }}</td>
+      <td>{{ l.paid|tzs }}</td><td>{{ l.balance|tzs }}</td><td>{{ badge(l.status) }}</td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('loan', lid=l.id) }}">Fungua</a></td></tr>{% endfor %}
+  </table></div>
+  {% else %}<div class="text-center text-muted py-4"><i class="bi bi-cash-stack fs-1"></i><br>Hakuna mikopo.</div>{% endif %}
+</div>
+{% endblock %}

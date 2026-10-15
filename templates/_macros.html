@@ -1,0 +1,6 @@
+{% macro badge(s) -%}
+{% set m = {'active':('primary','Hai'),'overdue':('danger','Imechelewa'),'completed':('success','Imekamilika'),
+            'paid':('success','Imelipwa'),'partial':('warning','Sehemu'),'pending':('secondary','Inasubiri'),
+            'review':('warning','Linasubiri ukaguzi'),'rejected':('danger','Limekataliwa')} %}
+<span class="badge text-bg-{{ m[s][0] }}">{{ m[s][1] }}</span>
+{%- endmacro %}

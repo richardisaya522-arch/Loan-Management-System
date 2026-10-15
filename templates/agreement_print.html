@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="sw">
+<head>
+  <meta charset="utf-8">
+  <title>Mkataba #{{ g.loan_id }} | ANTHONY MICROFINANCE</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width:760px; margin:2rem auto; padding:1.5rem; color:#111; }
+    .brand { text-align:center; margin-bottom:.4rem; }
+    .brand em { font-size:.85rem; letter-spacing:.06em; color:#444; }
+    h1 { text-align:center; font-size:1.25rem; margin:0 0 .2rem; text-transform:uppercase; }
+    .sub { text-align:center; color:#555; font-size:.85rem; margin-bottom:1.4rem; }
+    p { line-height:1.75; text-align:justify; font-size:.94rem; margin:.7rem 0; }
+    .kv { width:100%; border-collapse:collapse; margin:.6rem 0 1rem; }
+    .kv td { padding:.45rem .6rem; border-bottom:1px dotted #bbb; font-size:.94rem; }
+    .kv td:last-child { text-align:right; font-weight:bold; white-space:nowrap; }
+    ol { font-size:.94rem; line-height:1.75; padding-left:1.4rem; }
+    ol li { margin-bottom:.5rem; }
+    .sign { width:100%; border-collapse:collapse; margin-top:1.6rem; font-size:.85rem; }
+    .sign th { border:1px solid #999; padding:.5rem; background:#f2f2f2; text-transform:uppercase; font-size:.72rem; }
+    .sign td { border:1px solid #999; padding:.55rem .5rem; height:74px; vertical-align:top; }
+    .sign .sig { font-style:italic; font-size:1.05rem; }
+    .note { font-size:.78rem; color:#555; margin-top:1.4rem; border-top:1px solid #ccc; padding-top:.6rem; }
+    button { display:block; margin:1.6rem auto 0; padding:.5rem 1.3rem; cursor:pointer; }
+    @media print { button { display:none; } body { margin:0; padding:0; } .sign td { height:96px; } }
+  </style>
+</head>
+<body>
+  <div class="brand"><em>ANTHONY MICROFINANCE</em></div>
+  <h1>Mkataba wa Kukopesha Fedha kwa Riba</h1>
+  <div class="sub">Namba ya mkataba: AGR-{{ '%05d' % g.id }} &middot; Mkopo #{{ g.loan_id }}</div>
+
+  <p>
+    Mkataba huu umetiwa saini leo tarehe <b>{{ g.signed_on }}</b> mwezi
+    <b>{{ g.signed_on[5:7] }}</b>, mwaka <b>{{ g.signed_on[:4] }}</b> mahali
+    <b>{{ g.place }}</b>, kwa hati ya <b>MKOPESHAJI</b> ambaye ni
+    <b>{{ g.lender }}</b> (ninajitambulisha kama &ldquo;MKOPESHAJI&rdquo;)
+  </p>
+
+  <p><b>NA</b></p>
+
+  <p>
+    Kwa upande wa pili ndugu atafahamika kuwa <b>MKOPAJI</b> wa {{ g.lender }},
+    ambaye amekubaliwa kama ifuatavyo:
+  </p>
+
+  <ol type="a">
+    <li>MKOPAJI amekopa fedha kiasi cha
+      <b>TZS {{ '{:,}'.format(g.principal) }}</b>, ambapo ameahidi kulipa fedha hizo kiasi cha
+      <b>TZS {{ '{:,}'.format(g.total) }}</b> (ribahai ya
+      TZS {{ '{:,}'.format(g.interest) }}) kwa muda wa
+      <b>{{ g.period_months }} miezi</b>, ifikapo tarehe <b>{{ g.repay_by }}</b>.</li>
+    <li>MKOPAJI ana wajibu wa kumtafuta MKOPESHAJI wake mara anapohitaji kurudisha deni lake,
+      na si vinginevyo.</li>
+    <li>MKOPAJI ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
+    <li>Kwa kuweka saini, MKOPAJI anakiri kukubaliana na utaratibu huu.</li>
+    <li>Kwamba MKOPAJI kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
+    <li>Kwamba mnkataba huu unatalsiriwa na sheria za JAMHURI YA MUUNGANO WA TANZANIA,
+      na kwamba upande wowote utakaovunja mkataba huu, hatua kali za kisheria
+      vitachuliwa dhidi yake.</li>
+    <li><b>MDHAMINI</b>{% if g.guarantor %} <b>{{ g.guarantor }}</b>{% endif %} amesaini kama mdhamini
+      wa mkopo huu, na anakubali kuwajibika kuhakikisha deni hili linalipwa kwa wakati.</li>
+  </ol>
+
+  <table class="kv">
+    <tr><td>Kiasi kilichokopeshwa (principal)</td><td>TZS {{ '{:,}'.format(g.principal) }}</td></tr>
+    <tr><td>Riba</td><td>TZS {{ '{:,}'.format(g.interest) }}</td></tr>
+    <tr><td>Jumla ya kulipa</td><td>TZS {{ '{:,}'.format(g.total) }}</td></tr>
+    <tr><td>Muda wa kulipa</td><td>{{ g.period_months }} miezi</td></tr>
+    <tr><td>Malipo ya kila mwezi</td><td>TZS {{ '{:,}'.format(g.total // g.period_months) }}</td></tr>
+    <tr><td>Tarehe ya mwisho ya kulipa</td><td>{{ g.repay_by }}</td></tr>
+    {% if g.purpose %}<tr><td>Matumizi ya mkopo</td><td>{{ g.purpose }}</td></tr>{% endif %}
+  </table>
+
+  <p>
+    Wahusika wamekubaliana kama ilivyo hapo juu na kuweka saini zao kama ifuatavyo hapo chini.
+  </p>
+
+  <table class="sign">
+    <thead><tr><th style="width:34%">Naibu</th><th style="width:33%">Jina</th><th>Sahihi</th></tr></thead>
+    <tbody>
+      <tr><td><b>MKOPESHAJI</b></td><td>{{ g.lender }}</td>
+          <td class="sig">{{ g.lender_sign or '' }}</td></tr>
+      <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>{{ g.lender_witness or '-' }}</td><td></td></tr>
+      <tr><td><b>MKOPAJI</b></td><td>{{ g.borrower }}</td>
+          <td class="sig">{{ g.borrower_sign }}</td></tr>
+      <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>{{ g.borrower_witness }}</td><td></td></tr>
+      <tr><td><b>MDHAMINI</b></td><td>{{ g.guarantor or '-' }}{% if g.guarantor_phone %} ({{ g.guarantor_phone }}){% endif %}</td>
+          <td class="sig">{{ g.guarantor_sign or '' }}</td></tr>
+      <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>{{ g.guarantor_witness or '-' }}</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    Mkataba huu umetengenezwa na mfumo wa ANTHONY MICROFINANCE. Sahihi za MKOPESHAJI na
+    SHAHIDI WA MKOPESHAJI zinaweza kuongezwa mkononi baada ya kupeleka nakala halisi.
+  </div>
+
+  <button onclick="window.print()">Chapisha / PDF</button>
+</body>
+</html>

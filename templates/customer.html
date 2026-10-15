@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block content %}
+<a href="{{ url_for('customers') }}" class="text-decoration-none">&larr; Wateja</a>
+<div class="card p-3 my-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center">
+    <h4 class="mb-0">{{ c.name }}</h4>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge {{ 'text-bg-success' if c.profile_done else 'text-bg-secondary' }}">
+        {{ 'Fomu imejazwa' if c.profile_done else 'Fomu bado haijajazwa' }}</span>
+      {% if has_user %}
+      <form method="post" action="{{ url_for('reset_customer_password', cid=c.id) }}"
+            onsubmit="return confirm('Weka upya password ya {{ c.name }}? Password ya muda itaonyeshwa.')">
+        <input type="hidden" name="csrf" value="{{ csrf() }}">
+        <button class="btn btn-outline-warning btn-sm"><i class="bi bi-key"></i> Weka upya password</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="text-muted mt-1"><i class="bi bi-telephone"></i> {{ c.phone }} &nbsp; <i class="bi bi-geo-alt"></i> {{ c.address or '-' }}</div>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-6"><div class="card p-3 h-100">
+    <h6 class="mb-3">Taarifa za mteja</h6>
+    <div class="row g-2 small">
+      {% for label, val in [('Jina kamili', c.name), ('Namba ya simu', c.phone),
+         ('Barua pepe', c.email),
+         ('Anwani / makazi', c.address), ('Kazi anayofanya', c.occupation),
+         ('Benki', c.bank_name), ('Namba ya akaunti', c.bank_account)] %}
+      <div class="col-sm-4 text-muted">{{ label }}</div>
+      <div class="col-sm-8 fw-semibold">{{ val or '-' }}</div>
+      {% endfor %}
+    </div>
+  </div></div>
+  <div class="col-lg-6"><div class="card p-3 h-100">
+    <h6 class="mb-3">Taarifa za mdhamini</h6>
+    {% if c.guarantor_name %}
+    <div class="row g-2 small">
+      {% for label, val in [('Jina kamili', c.guarantor_name), ('Simu', c.guarantor_phone),
+         ('Anwani', c.guarantor_address)] %}
+      <div class="col-sm-4 text-muted">{{ label }}</div>
+      <div class="col-sm-8 fw-semibold">{{ val or '-' }}</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted small py-3">Haijaonyesha mdhamini bado — fomu ya profile haijajazwa.</div>
+    {% endif %}
+  </div></div>
+</div>
+<div class="d-flex justify-content-between mb-2"><h5>Historia ya mikopo</h5></div>
+<div class="card p-3">
+  {% if loans %}<div class="table-responsive"><table class="table mb-0">
+    <thead><tr><th>#</th><th>Kiasi</th><th>Jumla</th><th>Lililobaki</th><th>Hali</th><th></th></tr></thead>
+    {% for l in loans %}<tr><td>{{ l.id }}</td><td>{{ l.principal|tzs }}</td><td>{{ l.total|tzs }}</td><td>{{ l.balance|tzs }}</td><td>{{ badge(l.status) }}</td>
+      <td><a href="{{ url_for('loan', lid=l.id) }}">Fungua</a></td></tr>{% endfor %}
+  </table></div>{% else %}<div class="text-muted text-center py-3">Hana mkopo bado.</div>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="sw"><head><meta charset="utf-8"><title>Risiti RCP-{{ '%05d' % p.id }}</title>
+<style>
+  body{font-family:Arial,sans-serif;max-width:380px;margin:2rem auto;padding:1.5rem;border:1px dashed #999}
+  h2{text-align:center;margin:0 0 .2rem} .c{text-align:center;color:#666;margin-bottom:1rem}
+  .r{display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid #eee}
+  .big{font-size:1.4rem;font-weight:bold;text-align:center;margin:1rem 0}
+  button{display:block;margin:1rem auto 0;padding:.5rem 1.2rem} @media print{button{display:none}body{border:0}}
+</style></head><body>
+<div class="brand-in">
+<em class="fst-italic" style="display:block;font-size:.78rem;color:#666;letter-spacing:.04em">ANTHONY MICROFINANCE</em>
+<h2 style="font-size:1rem">LOAN MANAGEMENT SYSTEM</h2></div><div class="c">Risiti ya malipo</div>
+<div class="r"><span>Namba</span><b>RCP-{{ '%05d' % p.id }}</b></div>
+<div class="r"><span>Tarehe</span><span>{{ p.paid_on }}</span></div>
+<div class="r"><span>Mteja</span><span>{{ p.name }}</span></div>
+<div class="r"><span>Mkopo</span><span>#{{ p.loan_id }}</span></div>
+<div class="r"><span>Njia</span><span>{{ p.method }}</span></div>
+{% if p.note %}<div class="r"><span>Maelezo</span><span>{{ p.note }}</span></div>{% endif %}
+<div class="big">{{ p.amount|tzs }}</div>
+<div class="c">Asante kwa malipo yako.</div>
+<button onclick="window.print()">Chapisha</button>
+</body></html>

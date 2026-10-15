@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Jisajili | ANTHONY MICROFINANCE{% endblock %}
+{% block content %}
+<div class="row g-0 auth-card">
+
+  <aside class="col-lg-5 auth-side d-flex flex-column">
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <span class="auth-logo"><i class="bi bi-cash-coin brand-ico"></i></span>
+      <span class="d-flex flex-column lh-sm brand-in">
+        <em class="fst-italic fw-semibold" style="font-size:.78rem">ANTHONY MICROFINANCE</em>
+        <span class="fw-bold brand-name">LOAN MANAGEMENT SYSTEM</span>
+      </span>
+    </div>
+    <h2 class="fw-bold lh-sm mb-2">Pata mkopo wako<br>wa maisha mapema</h2>
+    <p class="auth-sub mb-4">Jisajili mbele, uombe mkopo, kisha fuata malipo yako yote kutoka simu yako mwenyewe.</p>
+    <div class="d-grid gap-3 mb-4">
+      {% for icon, title, text in [
+        ('bi-stopwatch', 'Haraka sana', 'Ombi lako linakaguliwa na ofisi ndani ya masaa machache.'),
+        ('bi-phone-vibrate', 'Lipa kwa simu', 'M-Pesa, Tigo Pesa, Airtel Money au Benki.'),
+        ('bi-eye', 'Riba inaonyeshwa wazi', 'Unajua riba na kila mwezi kabla ya kukubaliwa.'),
+        ('bi-shield-check', 'Taarifa zako zilindwa', 'Fichafichwa na kuingia kwa password.')] %}
+      <div class="d-flex gap-3">
+        <i class="bi {{ icon }} auth-ico"></i>
+        <div><div class="fw-semibold">{{ title }}</div><div class="small auth-sub">{{ text }}</div></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="row g-2 auth-stats pt-3 mt-auto">
+      {% for v, t in [('TZS 50k', 'Kiasi cha mwanzo'), ('24', 'Miezi kwa mkopo'), ('0', 'Ada ya kuficha')] %}
+      <div class="col-4"><div class="fw-bold">{{ v }}</div><div class="small auth-sub">{{ t }}</div></div>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <section class="col-lg-7 auth-form">
+    <h3 class="fw-bold mb-1">Fungua akaunti</h3>
+    <p class="text-muted mb-1">Jaza taarifa zako ili kuanza.</p>
+    <p class="text-muted small mb-4">Unahitaji dakika moja tu. Maelezo yako hayatatumiwa kwa madhumumi mengine.</p>
+
+    <form method="post" novalidate id="reg">
+      <input type="hidden" name="csrf" value="{{ csrf() }}">
+
+      <div class="form-section">Taarifa za mteja</div>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label" for="name">Jina kamili</label>
+          <input class="form-control {{ 'is-invalid' if e.get('name') }}" id="name" name="name"
+                 value="{{ f.get('name', '') }}" placeholder="Mfano: Amina Juma" autocomplete="name" autofocus required>
+          <div class="invalid-feedback">{{ e.get('name') or '' }}</div>
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="phone">Namba ya simu</label>
+          <input class="form-control {{ 'is-invalid' if e.get('phone') }}" id="phone" name="phone"
+                 value="{{ f.get('phone', '') }}" placeholder="0712345678" inputmode="tel"
+                 autocomplete="tel" required>
+          <div class="invalid-feedback">{{ e.get('phone') or '' }}</div>
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="email">Barua pepe (email)</label>
+          <input class="form-control {{ 'is-invalid' if e.get('email') }}" type="email" id="email" name="email"
+                 value="{{ f.get('email', '') }}" placeholder="Mfano: amina@email.com"
+                 autocomplete="email" inputmode="email">
+          <div class="invalid-feedback">{{ e.get('email') or '' }}</div>
+        </div>
+      </div>
+
+      <div class="form-section">Chama la kuingia</div>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-group">
+            <input class="form-control {{ 'is-invalid' if e.get('password') }}" type="password" id="password"
+                   name="password" placeholder="Angalau herufi 8" autocomplete="new-password" required>
+            <button class="btn" type="button" data-toggle="password" data-for="password" tabindex="-1"
+                    aria-label="Onyesha password"><i class="bi bi-eye"></i></button>
+            <div class="invalid-feedback">{{ e.get('password') or '' }}</div>
+          </div>
+          <div class="pw-meter"><i></i><i></i><i></i><i></i></div>
+          <span class="pw-label" id="pwLabel">Angalau herufi 8, weka nambari na alama.</span>
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="password2">Rudia password</label>
+          <div class="input-group">
+            <input class="form-control {{ 'is-invalid' if e.get('password2') }}" type="password" id="password2"
+                   name="password2" placeholder="Andika tena password" autocomplete="new-password" required>
+            <button class="btn" type="button" data-toggle="password" data-for="password2" tabindex="-1"
+                    aria-label="Onyesha password"><i class="bi bi-eye"></i></button>
+            <div class="invalid-feedback">{{ e.get('password2') or '' }}</div>
+          </div>
+          <span class="pw-label" id="match"></span>
+        </div>
+      </div>
+
+      <div class="form-check mt-4">
+        <input class="form-check-input {{ 'is-invalid' if e.get('consent') }}" type="checkbox"
+               name="consent" id="consent" {{ 'checked' if f.get('consent') }} required>
+        <label class="form-check-label small" for="consent">
+          Nathibitisha kuwa taarifa nilizoweka ni sahihi na nakubali
+          <a href="#" onclick="return false">Masharti ya matumizi</a> na <a href="#" onclick="return false">Sera ya faragha</a>.
+        </label>
+        <div class="invalid-feedback">{{ e.get('consent') or '' }}</div>
+      </div>
+
+      <button class="btn btn-primary btn-lg w-100 mt-4" type="submit">
+        <i class="bi bi-person-plus"></i> Fungua akaunti
+      </button>
+      <p class="text-center text-muted small mt-3 mb-0">
+        Tayari una akaunti? <a href="{{ url_for('login') }}" class="fw-semibold">Ingia hapa</a>
+      </p>
+    </form>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PASSWORD = document.getElementById('password');
+const CONFIRM = document.getElementById('password2');
+const BARS = [...document.querySelectorAll('.pw-meter i')];
+const LABEL = document.getElementById('pwLabel');
+const MATCH = document.getElementById('match');
+const LEVELS = [
+  { color: '#dc3545', text: 'Password ni dhaifu.' },
+  { color: '#fd7e14', text: 'Password ni wastani - ongeza nambari au alama.' },
+  { color: '#0d6efd', text: 'Password nzuri.' },
+  { color: '#198754', text: 'Password imarigidhi sana.' }
+];
+
+function score(pw) {
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (pw.length >= 12) s++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
+  return s;
+}
+
+function paintMeter() {
+  const pw = PASSWORD.value, lv = pw ? LEVELS[score(pw) - 1] || LEVELS[0] : null;
+  BARS.forEach((bar, i) => {
+    bar.style.background = lv && i < score(pw) ? lv.color : '#e3e7ec';
+  });
+  LABEL.textContent = lv ? lv.text : 'Angalau herufi 8, weka nambari na alama.';
+  LABEL.style.color = lv ? lv.color : '';
+  paintMatch();
+}
+
+function paintMatch() {
+  const ok = CONFIRM.value.length > 0 && CONFIRM.value === PASSWORD.value;
+  MATCH.innerHTML = CONFIRM.value.length
+    ? ok ? '<span style="color:#198754"><i class="bi bi-check-circle"></i> Zinalinganana</span>'
+          : '<span style="color:#dc3545">Hazifanani</span>'
+    : '';
+}
+
+document.querySelectorAll('[data-toggle="password"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const box = document.getElementById(btn.dataset.for);
+    const show = box.type === 'password';
+    box.type = show ? 'text' : 'password';
+    btn.querySelector('i').className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+    btn.setAttribute('aria-label', show ? 'Ficha password' : 'Onyesha password');
+  });
+});
+
+PASSWORD.addEventListener('input', paintMeter);
+CONFIRM.addEventListener('input', paintMatch);
+
+const PHONE = document.getElementById('phone');
+PHONE.addEventListener('input', () => {
+  const cleaned = PHONE.value.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+  if (cleaned !== PHONE.value) PHONE.value = cleaned;
+});
+
+document.querySelectorAll('.is-invalid').forEach(box => {
+  box.addEventListener('input', () => {
+    box.classList.remove('is-invalid');
+    const fb = box.parentElement.querySelector('.invalid-feedback')
+            || box.closest('.input-group').querySelector('.invalid-feedback');
+    if (fb && !fb.textContent.trim()) fb.classList.remove('d-block');
+  });
+});
+</script>
+{% endblock %}

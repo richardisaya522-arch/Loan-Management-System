@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Karibu, {{ c.name }}</h3>
+  <a class="btn btn-primary" href="{{ url_for('apply') }}"><i class="bi bi-plus-lg"></i> Omba mkopo</a>
+</div>
+<div class="card p-3 mb-3">
+  <div class="text-muted"><i class="bi bi-telephone"></i> {{ c.phone }} &nbsp; <i class="bi bi-geo-alt"></i> {{ c.address or '-' }}</div>
+</div>
+<h5>Maombi na mikopo yangu</h5>
+<div class="card p-3">
+  {% if rows %}<div class="table-responsive"><table class="table align-middle mb-0">
+    <thead><tr><th>#</th><th>Tarehe</th><th>Kiasi</th><th>Miezi</th><th>Lililobaki</th><th>Hali</th><th></th></tr></thead>
+    {% for l in rows %}<tr><td>{{ l.id }}</td><td>{{ (l.applied_at or l.created_at or '')[:10] }}</td><td>{{ l.principal|tzs }}</td><td>{{ l.months }}</td>
+      <td>{{ l.balance|tzs if l.decision == 'approved' else '-' }}</td><td>{{ badge(l.st) }}</td>
+      <td class="text-nowrap">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('loan', lid=l.id) }}">Fungua</a>
+      </td></tr>
+      {% endfor %}
+  </table></div>
+  {% else %}<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-1"></i><br>Bado hujaomba mkopo. <a href="{{ url_for('apply') }}">Omba sasa</a>.</div>{% endif %}
+</div>
+{% endblock %}

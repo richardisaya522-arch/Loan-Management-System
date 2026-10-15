@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="sw">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ANTHONY MICROFINANCE | LOAN MANAGEMENT SYSTEM{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background:#f4f6f9; }
+    .navbar { background:#0f3d5e; }
+    .card { border:0; box-shadow:0 1px 3px rgba(15,61,94,.1); border-radius:12px; }
+    .stat-icon { width:48px; height:48px; border-radius:12px; display:grid; place-items:center; font-size:1.4rem; }
+    .table th { font-size:.78rem; text-transform:uppercase; color:#6b7a8a; }
+    .form-control, .form-select, .input-group-text, .btn { border-radius:10px; }
+    .form-control-lg, .input-group-lg > .form-control { font-size:1rem; padding:.6rem .9rem; }
+
+    /* Ukurasa wa kuingia / usajili */
+    .auth-card { max-width:1000px; margin-inline:auto; border-radius:18px;
+      overflow:hidden; box-shadow:0 1.25rem 3rem rgba(15,61,94,.16); }
+    .auth-side { background:linear-gradient(155deg,#0b2f49 0%,#14618f 55%,#0e9f8e 130%);
+      color:#fff; padding:2.75rem 2.5rem; }
+    .auth-logo { width:44px; height:44px; border-radius:13px; background:rgba(255,255,255,.16);
+      display:grid; place-items:center; font-size:1.35rem; }
+    .auth-ico { width:36px; height:36px; flex:0 0 36px; border-radius:11px;
+      background:rgba(255,255,255,.15); display:grid; place-items:center; font-size:.95rem; }
+    .auth-sub { color:rgba(255,255,255,.72); }
+    .auth-stats { border-top:1px solid rgba(255,255,255,.2); }
+    .auth-form { background:#fff; padding:2.75rem 2.5rem; }
+    .form-section { font-size:.75rem; text-transform:uppercase; letter-spacing:.07em;
+      color:#6b7a8a; font-weight:700; margin:1.5rem 0 .25rem; }
+    .form-section:first-of-type { margin-top:0; }
+    .input-group .form-control { border-top-right-radius:0; border-bottom-right-radius:0; }
+    .input-group .btn { border-top-left-radius:0; border-bottom-left-radius:0;
+      border-color:#ced4da; color:#6b7a8a; }
+    .pw-meter { display:flex; gap:4px; margin-top:.5rem; }
+    .pw-meter i { flex:1; height:5px; border-radius:3px; background:#e3e7ec; transition:background .2s; }
+    .pw-label { font-size:.8rem; color:#6b7a8a; }
+    @media (max-width:991.98px) { .auth-side, .auth-form { padding:1.75rem; } }
+
+    /* Mvuko wa jina la mfumo */
+    .brand-name { background:linear-gradient(100deg,#fff 38%,#8fe6db 50%,#fff 62%);
+      background-size:250% 100%; -webkit-background-clip:text; background-clip:text;
+      color:transparent; animation:brandShine 7s linear infinite; }
+    .brand-in, .brand-sub { animation:brandIn .8s ease-out both; }
+    .brand-ico { display:inline-block; animation:coinPulse 4.5s ease-in-out infinite; }
+    .navbar-brand:hover .brand-ico { animation-play-state:paused; transform:scale(1.15) rotate(6deg); }
+    @keyframes brandShine { 0%,60% { background-position:160% 0; } 100% { background-position:-60% 0; } }
+    @keyframes brandIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    @keyframes coinPulse { 0%,100% { transform:scale(1) rotate(0); } 50% { transform:scale(1.1) rotate(-7deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .brand-name, .brand-in, .brand-sub, .brand-ico { animation:none; }
+      .brand-name { color:#fff; -webkit-text-fill-color:#fff; }
+    }
+  </style>
+  {% block styles %}{% endblock %}
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('dashboard') }}">
+      <i class="bi bi-cash-coin brand-ico fs-4"></i>
+      <span class="d-flex flex-column lh-sm">
+        <em class="fst-italic fw-semibold brand-sub" style="font-size:.7rem;letter-spacing:.05em">ANTHONY MICROFINANCE</em>
+        <span class="fw-bold brand-name" style="font-size:.9rem">LOAN MANAGEMENT SYSTEM</span>
+      </span>
+    </a>
+    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        {% if session.role == 'admin' %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('applications') }}">Maombi{% if pending_count %} <span class="badge text-bg-warning">{{ pending_count }}</span>{% endif %}</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('customers') }}">Wateja</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('loans') }}">Mikopo</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('payments') }}">Malipo</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('backups') }}">Nakala</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('audit_log') }}">Kumbukumbu</a></li>
+        {% elif session.role == 'customer' %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('me') }}">Akaunti yangu</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('apply') }}">Omba mkopo</a></li>
+        {% endif %}
+        {% if session.user %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('change_password') }}">Badilisha password</a></li>
+        {% endif %}
+      </ul>
+      {% if session.user %}
+      <form method="post" action="{{ url_for('logout') }}" class="d-flex">
+        <input type="hidden" name="csrf" value="{{ csrf() }}">
+        <button class="btn btn-outline-light btn-sm"><i class="bi bi-box-arrow-right"></i> Toka</button>
+      </form>
+      {% else %}
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-light btn-sm" href="{{ url_for('login') }}">Ingia</a>
+        <a class="btn btn-warning btn-sm fw-semibold" href="{{ url_for('register') }}">Jisajili</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+<main class="container pb-5">
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ cat }} alert-dismissible fade show">{{ msg }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

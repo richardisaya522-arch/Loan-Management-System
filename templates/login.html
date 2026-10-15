@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Ingia | ANTHONY MICROFINANCE{% endblock %}
+{% block content %}
+<div class="row g-0 auth-card">
+
+  <aside class="col-lg-5 auth-side d-flex flex-column">
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <span class="auth-logo"><i class="bi bi-cash-coin brand-ico"></i></span>
+      <span class="d-flex flex-column lh-sm brand-in">
+          <em class="fst-italic fw-semibold" style="font-size:.78rem">ANTHONY MICROFINANCE</em>
+          <span class="fw-bold brand-name">LOAN MANAGEMENT SYSTEM</span>
+      </span>
+    </div>
+    <h2 class="fw-bold lh-sm mb-2">Karibu tena</h2>
+    <p class="auth-sub mb-4">Ingia ili kuona ratiba ya malipo, deni lililobaki na risiti zako.</p>
+    <div class="d-grid gap-3 mb-4">
+      {% for icon, text in [
+        ('bi-calendar-check', 'Ratiba ya kila mwezi iko hapa.'),
+        ('bi-receipt', 'Risiti za malipo yako, papaka moyo.'),
+        ('bi-hourglass-split', 'Deni lililobaki na madeni yako kwa wakati halisi.')] %}
+      <div class="d-flex gap-3">
+        <i class="bi {{ icon }} auth-ico"></i>
+        <div class="small auth-sub lh-base">{{ text }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="auth-stats pt-3 mt-auto small auth-sub">
+      <i class="bi bi-shield-lock"></i> Tafadhali funga tabia baada ya kumaliza kazi.
+    </div>
+  </aside>
+
+  <section class="col-lg-7 auth-form">
+    <h3 class="fw-bold mb-1">Ingia kwenye akaunti</h3>
+    <p class="text-muted mb-4">Wateja wanaingia kwa namba ya simu; wafanyakazi wa ofisi kwa jina la mtumiaji.</p>
+
+    <div class="alert alert-info d-flex align-items-start gap-2 py-2 px-3 small">
+      <i class="bi bi-info-circle mt-1"></i>
+      <div class="flex-grow-1">Mwenye akaunti yako tayari? Hao basi, endelea chini. Mwezi?
+        <a href="{{ url_for('register') }}" class="fw-semibold">Jisajili kwanza</a>
+      </div>
+    </div>
+
+    <form method="post" novalidate>
+      <input type="hidden" name="csrf" value="{{ csrf() }}">
+      <div class="mb-3">
+        <label class="form-label" for="username">Simu / Jina la mtumiaji</label>
+        <div class="input-group input-group-lg">
+          <span class="input-group-text"><i class="bi bi-person"></i></span>
+          <input class="form-control" id="username" name="username" placeholder="0712345678"
+                 autocomplete="username" autofocus required>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-group input-group-lg">
+          <span class="input-group-text"><i class="bi bi-lock"></i></span>
+          <input class="form-control" type="password" id="password" name="password"
+                 autocomplete="current-password" required>
+          <button class="btn" type="button" data-toggle="password" data-for="password" tabindex="-1"
+                  aria-label="Onyesha password"><i class="bi bi-eye"></i></button>
+        </div>
+        <div class="text-end mt-1">
+          <a href="{{ url_for('forgot') }}" class="small fw-semibold">Umesahau password?</a>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-lg w-100" type="submit">
+        <i class="bi bi-box-arrow-in-right"></i> Ingia
+      </button>
+    </form>
+
+    <div class="d-flex align-items-center gap-3 my-4">
+      <hr class="flex-grow-1 m-0"><span class="small text-muted">au</span><hr class="flex-grow-1 m-0">
+    </div>
+    <p class="text-center text-muted mb-0">
+      Bado huna akaunti? <a href="{{ url_for('register') }}" class="fw-semibold">Jisajili sasa</a>
+    </p>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-toggle="password"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const box = document.getElementById(btn.dataset.for);
+    const show = box.type === 'password';
+    box.type = show ? 'text' : 'password';
+    btn.querySelector('i').className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+    btn.setAttribute('aria-label', show ? 'Ficha password' : 'Onyesha password');
+  });
+});
+</script>
+{% endblock %}

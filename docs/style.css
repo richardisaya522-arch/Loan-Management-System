@@ -1,0 +1,21 @@
+body { background:#f4f6f9; }
+.navbar { background:#0f3d5e; }
+.card { border:0; box-shadow:0 1px 3px rgba(15,61,94,.1); border-radius:12px; }
+.stat-icon { width:48px; height:48px; border-radius:12px; display:grid; place-items:center; font-size:1.4rem; }
+.table th { font-size:.78rem; text-transform:uppercase; color:#6b7a8a; }
+.form-control, .form-select, .btn { border-radius:10px; }
+.brand-name { font-weight:700; }
+.auth-card { max-width:1000px; margin-inline:auto; border-radius:18px; overflow:hidden;
+  box-shadow:0 1.25rem 3rem rgba(15,61,94,.16); }
+.auth-side { background:linear-gradient(155deg,#0b2f49 0%,#14618f 55%,#0e9f8e 130%);
+  color:#fff; padding:2.75rem 2.5rem; }
+.auth-logo { width:44px; height:44px; border-radius:13px; background:rgba(255,255,255,.16);
+  display:grid; place-items:center; font-size:1.35rem; }
+.auth-sub { color:rgba(255,255,255,.72); }
+.auth-form { background:#fff; padding:2.75rem 2.5rem; }
+.form-section { font-size:.75rem; text-transform:uppercase; letter-spacing:.07em;
+  color:#6b7a8a; font-weight:700; margin:1.5rem 0 .25rem; }
+.pw-meter { display:flex; gap:4px; margin-top:.5rem; }
+.pw-meter i { flex:1; height:5px; border-radius:3px; background:#e3e7ec; transition:background .2s; }
+@media (max-width:991.98px) { .auth-side, .auth-form { padding:1.75rem; } }
+.spinner-wrap { min-height:60vh; display:grid; place-items:center; }

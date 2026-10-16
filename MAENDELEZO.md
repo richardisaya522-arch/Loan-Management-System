@@ -13,7 +13,11 @@ inayohost kwenye **GitHub Pages**.
 - Repo: https://github.com/richardisaya522-arch/Loan-Management-System (branch `main`)
 - Kuna matoleo mawili:
   1. **Flask + SQLite** (`app.py`) — inaendeshwa kompyuta ya ndani. Data ni **safi** (admin pekee).
-  2. **App tuli + Supabase** (`docs/`) — IMEANDIKWA, inasubiri Supabase project + config.
+  2. **App tuli + Supabase** (`docs/`) — IMEANDIKWA; Supabase project imeundwa, config imewekwa.
+- **Supabase project:** ref `ghxahscpxobuoorgyedn` (Org: richardisaya522@gmail.com's Org).
+  URL: https://ghxahscpxobuoorgyedn.supabase.co
+- `docs/config.js` imewekwa URL + key ya umma (`sb_publishable_...`). Key inafanya kazi.
+- **Schema HAijapandishwa bado** (`/rest/v1/profiles` -> 404).
 
 ## Kilichokamilika
 ### Flask (app.py)
@@ -34,21 +38,33 @@ inayohost kwenye **GitHub Pages**.
 - Usalama wote uko Supabase (RLS + functions za `security definer`).
 
 ## Inayofuata (hatua za kesho)
-1. **Supabase project** — unda kwenye https://supabase.com
-2. **Authentication → Providers → Email → ZIMA "Confirm email"** (lazima).
-3. **SQL Editor** → endesha yote ya `docs/schema.sql`.
-4. **Project Settings → API** → nakili **Project URL** + **anon key** →
-   ziweke kwenye `docs/config.js` (badala ya `WEWA_...`), commit + push.
+1. ✅ **Supabase project** — imeundwa (ref `ghxahscpxobuoorgyedn`).
+2. ⬜ **Authentication → Providers → Email → ZIMA "Confirm email"** (lazima).
+3. ⬜ **Pandisha schema** — chagua moja:
+   - **A) CLI:** `supabase login` (kwa richardisaya522@gmail.com) →
+     `supabase link --project-ref ghxahscpxobuoorgyedn` → `supabase db push`.
+   - **B) Dashboard:** SQL Editor → endesha yote ya `supabase/migrations/*_init_schema.sql`
+     (au `docs/schema.sql`).
+4. ✅ **URL + key** — zimewekwa kwenye `docs/config.js`.
 5. **Unda admin:** jisajili kwa namba (mf. `0700000000`), kisha SQL:
    `update public.profiles set role='admin' where username='0700000000';`
 6. **GitHub Pages:** Settings → Pages → Deploy from a branch → `main` / `/docs`.
    URL: https://richardisaya522-arch.github.io/Loan-Management-System/
 7. **Jaribio:** usajili, kuomba, idhini (admin), rekodi malipo, saini mkataba, angalia audit.
 
+## CLI ya Supabase — hali
+- `supabase init` imefanyika; ipo `supabase/` (`config.toml`) + migration:
+  `supabase/migrations/20261016202650_init_schema.sql`.
+- **Tatizo:** CLI imeingia kama `mkenyamkenyatech.tz@gmail.com`, ambaye **haina ruhusa**
+  kufikia project ya `richardisaya522@gmail.com`. Hivyo `link`/`db push` zinakataa.
+- **Suluhisho:** `supabase logout` kisha `supabase login` (tumia richardisaya522@gmail.com),
+  au tumia njia B (SQL Editor) hapo juu.
+
 ## Vidokezo / maamuzi
 - Auth: **namba ya simu + password** (bila SMS). Simu hubadilishwa kuwa barua pepe ya ndani.
 - Kubadilisha password ya mteja: Supabase Dashboard → Authentication → Users.
-- `anon key` ni ya umma — usalama ni RLS. Sawa kuipandisha GitHub.
+- Key ya umma ni ya muundo mpya: `sb_publishable_...` (badala ya `anon key` ya JWT).
+  Ni ya umma — usalama ni RLS. Sawa kuipandisha GitHub.
 - Backup: Supabase inatunza.
 - Flask (`app.py`) inaachwa kama akiba; haifutwi.
 

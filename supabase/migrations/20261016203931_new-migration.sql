@@ -113,7 +113,7 @@ create policy profiles_insert on public.profiles for insert to authenticated
 drop policy if exists profiles_update on public.profiles;
 create policy profiles_update on public.profiles for update to authenticated
   using (id = auth.uid() or public.is_admin())
-  with check (id = auth.uid() or public.is_admin());
+  with check ((id = auth.uid() and role = 'customer') or public.is_admin());
 
 -- customers
 drop policy if exists customers_select on public.customers;
@@ -204,7 +204,8 @@ create or replace function public.apply_loan(p_principal bigint, p_months int, p
 returns bigint language plpgsql security definer set search_path = public as $$
 declare v_cid bigint; v_active int; v_has_pending boolean; v_id bigint;
 begin
-  select public.my_customer_id() into v_cid;
+  select id into v_cid from public.customers
+    where user_id = auth.uid() for update;
   if v_cid is null then raise exception 'Haujatambuliwa kama mteja.'; end if;
 
   if p_principal < 50000 or p_principal > 2000000 then
@@ -269,9 +270,17 @@ declare v_total bigint; v_paid bigint;
 begin
   if not public.is_admin() then raise exception 'Ruhusa imekataliwa.'; end if;
   if p_amount is null or p_amount <= 0 then raise exception 'Kiasi si sahihi.'; end if;
+  if not exists (
+    select 1 from public.agreements
+    where loan_id = p_loan_id and accepted
+      and nullif(btrim(lender_sign), '') is not null
+  ) then
+    raise exception 'Mkataba lazima usainiwe kabla ya kurekodi malipo.';
+  end if;
 
   select principal + round(principal * rate / 100 * months) into v_total
-    from public.loans where id = p_loan_id and decision='approved';
+    from public.loans where id = p_loan_id and decision='approved'
+    for update;
   if v_total is null then raise exception 'Mkopo haupo au haujaidiwa.'; end if;
   select coalesce(sum(amount),0) into v_paid from public.payments where loan_id = p_loan_id;
   if p_amount > (v_total - v_paid) then
@@ -289,10 +298,17 @@ create or replace function public.sign_borrower(
   p_loan_id bigint, p_sign text, p_witness text, p_place text
 ) returns void language plpgsql security definer set search_path = public as $$
 begin
+  if not exists(select 1 from public.loans where id = p_loan_id and decision = 'approved') then
+    raise exception 'Mkopo haupo au haujaidhinishwa.';
+  end if;
   if not (public.is_admin() or exists(
       select 1 from public.loans l where l.id = p_loan_id
         and l.customer_id = public.my_customer_id())) then
     raise exception 'Ruhusa imekataliwa.';
+  end if;
+  if nullif(btrim(p_sign), '') is null or nullif(btrim(p_witness), '') is null
+     or nullif(btrim(p_place), '') is null then
+    raise exception 'Jaza saini, shahidi na mahali.';
   end if;
   insert into public.agreements(loan_id, borrower_sign, borrower_witness, borrower_place, accepted)
     values (p_loan_id, p_sign, p_witness, p_place, true)
@@ -308,6 +324,12 @@ create or replace function public.sign_lender(p_loan_id bigint, p_sign text, p_w
 returns void language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'Ruhusa imekataliwa.'; end if;
+  if not exists(select 1 from public.loans where id = p_loan_id and decision = 'approved') then
+    raise exception 'Mkopo haupo au haujaidhinishwa.';
+  end if;
+  if nullif(btrim(p_sign), '') is null or nullif(btrim(p_witness), '') is null then
+    raise exception 'Jaza saini na shahidi wa mkopeshaji.';
+  end if;
   insert into public.agreements(loan_id, lender, lender_witness, lender_sign)
     values (p_loan_id, 'ANTHONY MICROFINANCE', p_witness, p_sign)
     on conflict (loan_id) do update set
@@ -324,4 +346,13 @@ end; $$;
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
-grant execute on all functions in schema public to authenticated;
+revoke insert, update, delete on public.audit from authenticated;
+revoke execute on all functions in schema public from public, anon, authenticated;
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.my_customer_id() to authenticated;
+grant execute on function public.save_profile(text, text, text, text, text, text, text, text, text, text) to authenticated;
+grant execute on function public.apply_loan(bigint, int, text) to authenticated;
+grant execute on function public.decide_loan(bigint, text, numeric, int, date, text) to authenticated;
+grant execute on function public.record_payment(bigint, bigint, date, text, text) to authenticated;
+grant execute on function public.sign_borrower(bigint, text, text, text) to authenticated;
+grant execute on function public.sign_lender(bigint, text, text) to authenticated;

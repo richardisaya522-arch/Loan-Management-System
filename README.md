@@ -28,6 +28,8 @@ Fungua http://127.0.0.1:5000
 
 ### 2. Endesha schema
 - Dashboard → **SQL Editor** → *New query* → nakili yote ya `docs/schema.sql` → **Run**.
+- Kwa project iliyounganishwa na Supabase CLI, tumia `supabase db push` ili migration
+  za mwanzo na masasisho ya usalama yapandishwe.
 
 ### 3. Weka config
 - Dashboard → **Project Settings** → **API**. Nakili **Project URL** na **anon public key**.
@@ -36,6 +38,9 @@ Fungua http://127.0.0.1:5000
   SUPABASE_URL: "https://xxxx.supabase.co",
   SUPABASE_ANON_KEY: "eyJ...",
   ```
+- Tumia publishable/anon key kwenye app ya browser pekee. Usiweke `sb_secret_...`
+  au `service_role` key kwenye `docs/config.js`, HTML, au JavaScript; hizo zinahitaji
+  backend na si salama kwa GitHub Pages.
 
 ### 4. Unda admin
 - Fungua app, **Jisajili** kwa namba utakayotumia kama admin (mfano `0700000000`).

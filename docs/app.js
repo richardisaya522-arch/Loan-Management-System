@@ -586,7 +586,10 @@
     v.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => approveDialog(v, +b.dataset.approve)));
     v.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", async () => {
       const note = prompt("Sababu ya kukataa (hiari):") || "";
-      const { error } = await sb.rpc("decide_loan", { p_loan_id: +b.dataset.reject, p_action: "reject", p_note: note });
+      const { error } = await sb.rpc("decide_loan", {
+        p_loan_id: +b.dataset.reject, p_action: "reject",
+        p_rate: null, p_months: null, p_start: null, p_note: note
+      });
       if (error) return toast(error.message, "danger");
       toast("Ombi limekataliwa.", "warning"); applicationsView(v);
     }));

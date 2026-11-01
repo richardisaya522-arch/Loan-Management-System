@@ -38,8 +38,9 @@ def _secret_key():
 
 app.secret_key = _secret_key()
 app.config.update(SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_HTTPONLY=True)
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "loans.db")
-BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups")
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get("DB_PATH", os.path.join(APP_DIR, "loans.db"))
+BACKUP_DIR = os.environ.get("BACKUP_DIR", os.path.join(APP_DIR, "backups"))
 BACKUP_KEEP = 14   # idadi ya nakala za hivi karibuni za kubakiza
 METHODS = ["Cash", "M-Pesa", "Tigo Pesa", "Airtel Money", "Benki"]
 MIN_LOAN, MAX_LOAN, MAX_MONTHS = 50_000, 2_000_000, 24   # mipaka ya maombi ya wateja

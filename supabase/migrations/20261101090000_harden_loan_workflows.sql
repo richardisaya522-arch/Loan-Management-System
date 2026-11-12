@@ -108,9 +108,9 @@ begin
     raise exception 'Jaza saini na shahidi wa mkopeshaji.';
   end if;
   insert into public.agreements(loan_id, lender, lender_witness, lender_sign)
-    values (p_loan_id, 'ANTHONY MICROFINANCE', p_witness, p_sign)
+    values (p_loan_id, 'ZABURI YA 23 MICROFINANCE', p_witness, p_sign)
     on conflict (loan_id) do update set
-      lender = 'ANTHONY MICROFINANCE',
+      lender = 'ZABURI YA 23 MICROFINANCE',
       lender_witness = excluded.lender_witness,
       lender_sign = excluded.lender_sign;
   perform public.audit_write('agreement.lender_sign', 'loan#' || p_loan_id, p_sign);

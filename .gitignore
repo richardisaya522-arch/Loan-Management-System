@@ -1,5 +1,7 @@
 # Siri na data (USIPANDE hivi GitHub)
 .secret_key
+.prod_secret_key
+production.env
 loans.db
 loans.db-wal
 loans.db-shm

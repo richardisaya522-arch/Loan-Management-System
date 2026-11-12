@@ -1,6 +1,12 @@
-/* ANTHONY MICROFINANCE - Supabase static app (GitHub Pages) */
+/* ZABURI YA 23 MICROFINANCE - Supabase static app (GitHub Pages) */
 (function () {
   "use strict";
+
+  // Kinga ya clickjacking (GitHub Pages haiwezi kuweka header ya X-Frame-Options).
+  if (window.top !== window.self) {
+    try { window.top.location = window.self.location.href; }
+    catch (e) { document.documentElement.innerHTML = ""; }
+  }
 
   const CFG = window.APP_CONFIG || {};
   const $app = document.getElementById("app");
@@ -26,6 +32,24 @@
   const phoneToEmail = (phone) => digits(phone) + "@anthony.local";
   const validPhone = (p) => /^(0[67]\d{8}|255[67]\d{8})$/.test(digits(p));
   const normPhone = (p) => { let d = digits(p); if (d.startsWith("255")) d = "0" + d.slice(3); return d; };
+
+  // Sera ya password (ulingane na app ya Flask). Uthibitisho halisi uko Supabase Auth.
+  const COMMON_PASSWORDS = new Set([
+    "password", "password1", "password123", "12345678", "123456789", "1234567890",
+    "qwerty123", "qwertyuiop", "admin123", "admin1234", "11111111", "00000000",
+    "iloveyou", "welcome1", "abc12345", "letmein1", "changeme", "tanzania"
+  ]);
+  function passwordProblem(pw, phone) {
+    if (!pw || pw.length < 8) return "Password iwe angalau herufi 8.";
+    if (pw.length > 128) return "Password isizidi herufi 128.";
+    if (COMMON_PASSWORDS.has(pw.toLowerCase()))
+      return "Password hii ni rahisi kubashiri. Tumia password nyingine.";
+    if (phone && pw.toLowerCase() === String(phone).toLowerCase())
+      return "Password isiwe sawa na namba yako.";
+    if (/^\d+$/.test(pw) || /^[A-Za-z]+$/.test(pw))
+      return "Changanya herufi pamoja na nambari au alama.";
+    return null;
+  }
   const fmtDate = (d) => {
     if (!d) return "-";
     const dt = (typeof d === "string") ? new Date(d.length <= 10 ? d + "T00:00:00" : d) : d;
@@ -178,7 +202,7 @@
       <form id="regForm">
         <div class="mb-3"><label class="form-label">Namba ya simu</label>
           <input class="form-control form-control-lg" name="phone" placeholder="0712345678" required></div>
-        <div class="mb-3"><label class="form-label">Password (angalau herufi 8)</label>
+        <div class="mb-3"><label class="form-label">Password (angalau 8, herufi + nambari/alama)</label>
           <input class="form-control form-control-lg" type="password" name="password" required></div>
         <div class="mb-3"><label class="form-label">Rudia password</label>
           <input class="form-control form-control-lg" type="password" name="password2" required></div>
@@ -189,7 +213,8 @@
       const f = e.target;
       const phone = normPhone(f.phone.value);
       if (!validPhone(phone)) return toast("Namba si sahihi. Mfano: 0712345678", "danger");
-      if (f.password.value.length < 8) return toast("Password iwe angalau herufi 8.", "danger");
+      const pwErr = passwordProblem(f.password.value, phone);
+      if (pwErr) return toast(pwErr, "danger");
       if (f.password.value !== f.password2.value) return toast("Password mbili hazifanani.", "danger");
       const { data, error } = await sb.auth.signUp({
         email: phoneToEmail(phone), password: f.password.value,
@@ -354,31 +379,31 @@
           <div class="form-section">Taarifa zako</div>
           <div class="row g-3">
             <div class="col-md-6"><label class="form-label">Jina kamili (majina matatu)</label>
-              <input class="form-control" name="name" value="${g("name")}" required></div>
+              <input class="form-control" name="name" value="${g("name")}" maxlength="120" required></div>
             <div class="col-md-6"><label class="form-label">Namba ya simu</label>
-              <input class="form-control" name="phone" value="${g("phone")}" required></div>
+              <input class="form-control" name="phone" value="${g("phone")}" maxlength="13" inputmode="tel" required></div>
             <div class="col-md-6"><label class="form-label">Barua pepe (hiari)</label>
-              <input class="form-control" name="email" value="${g("email")}"></div>
+              <input class="form-control" type="email" name="email" value="${g("email")}" maxlength="160"></div>
             <div class="col-md-6"><label class="form-label">Anwani</label>
-              <input class="form-control" name="address" value="${g("address")}" required></div>
+              <input class="form-control" name="address" value="${g("address")}" maxlength="160" required></div>
             <div class="col-md-6"><label class="form-label">Kazi</label>
-              <input class="form-control" name="occupation" value="${g("occupation")}" required></div>
+              <input class="form-control" name="occupation" value="${g("occupation")}" maxlength="120" required></div>
           </div>
           <div class="form-section">Mdhamini</div>
           <div class="row g-3">
             <div class="col-md-6"><label class="form-label">Jina la mdhamini</label>
-              <input class="form-control" name="guarantor_name" value="${g("guarantor_name")}" required></div>
+              <input class="form-control" name="guarantor_name" value="${g("guarantor_name")}" maxlength="120" required></div>
             <div class="col-md-6"><label class="form-label">Simu ya mdhamini</label>
-              <input class="form-control" name="guarantor_phone" value="${g("guarantor_phone")}" required></div>
+              <input class="form-control" name="guarantor_phone" value="${g("guarantor_phone")}" maxlength="13" inputmode="tel" required></div>
             <div class="col-md-6"><label class="form-label">Anwani ya mdhamini</label>
-              <input class="form-control" name="guarantor_address" value="${g("guarantor_address")}" required></div>
+              <input class="form-control" name="guarantor_address" value="${g("guarantor_address")}" maxlength="160" required></div>
           </div>
           <div class="form-section">Benki (hiari)</div>
           <div class="row g-3">
             <div class="col-md-6"><label class="form-label">Jina la benki</label>
-              <input class="form-control" name="bank_name" value="${g("bank_name")}"></div>
+              <input class="form-control" name="bank_name" value="${g("bank_name")}" maxlength="120"></div>
             <div class="col-md-6"><label class="form-label">Namba ya akaunti</label>
-              <input class="form-control" name="bank_account" value="${g("bank_account")}"></div>
+              <input class="form-control" name="bank_account" value="${g("bank_account")}" maxlength="40"></div>
           </div>
           <button class="btn btn-primary btn-lg mt-4">Hifadhi</button>
         </form>
@@ -388,6 +413,7 @@
       const f = e.target;
       const name = f.name.value.trim();
       if (name.split(/\s+/).length < 3) return toast("Andika majina matatu kamili.", "danger");
+      if (!validPhone(f.phone.value)) return toast("Namba yako ya simu si sahihi.", "danger");
       if (!validPhone(f.guarantor_phone.value)) return toast("Simu ya mdhamini si sahihi.", "danger");
       if (normPhone(f.guarantor_phone.value) === normPhone(f.phone.value))
         return toast("Mdhamini asimame na namba yako mwenyewe.", "danger");
@@ -447,17 +473,17 @@
       if (!agr || !agr.accepted) {
         signBlock += `<div class="card p-3 mb-3"><h6><i class="bi bi-pen"></i> Saini ya mkopaji</h6>
           <form id="signBorrower" class="row g-2">
-            <div class="col-md-4"><input class="form-control" name="sign" placeholder="Jina/sahihi yako" required></div>
-            <div class="col-md-4"><input class="form-control" name="witness" placeholder="Shahidi" required></div>
-            <div class="col-md-4"><input class="form-control" name="place" placeholder="Mahali" required></div>
+            <div class="col-md-4"><input class="form-control" name="sign" placeholder="Jina/sahihi yako" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="witness" placeholder="Shahidi" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="place" placeholder="Mahali" maxlength="120" required></div>
             <div class="col-12"><button class="btn btn-primary">Hifadhi saini</button></div>
           </form></div>`;
       }
       if (isAdmin && (!agr || !(agr.lender_sign || "").trim())) {
         signBlock += `<div class="card p-3 mb-3"><h6><i class="bi bi-pen"></i> Saini ya mkopeshaji</h6>
           <form id="signLender" class="row g-2">
-            <div class="col-md-6"><input class="form-control" name="witness" placeholder="Shahidi wa mkopeshaji" required></div>
-            <div class="col-md-6"><input class="form-control" name="sign" placeholder="Andika jina la mkopeshaji" required></div>
+            <div class="col-md-6"><input class="form-control" name="witness" placeholder="Shahidi wa mkopeshaji" maxlength="80" required></div>
+            <div class="col-md-6"><input class="form-control" name="sign" placeholder="Andika jina la mkopeshaji" maxlength="80" required></div>
             <div class="col-12"><button class="btn btn-warning">Hifadhi saini ya mkopeshaji</button></div>
           </form></div>`;
       }
@@ -469,7 +495,7 @@
         <h3 class="mb-0">Mkopo #${loan.id}
           <span class="badge ${badge(loan.decision === "approved" ? b.status : loan.decision)}">
             ${statusTxt(loan.decision === "approved" ? b.status : loan.decision)}</span></h3>
-        ${loan.decision === "approved" && contractDone ? `<button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Chapisha</button>` : ""}
+        ${loan.decision === "approved" && contractDone ? `<button class="btn btn-outline-secondary btn-sm" id="printLoanBtn"><i class="bi bi-printer"></i> Chapisha</button>` : ""}
       </div>
       ${loan.decision === "rejected" ? `<div class="alert alert-danger">Ombi limekataliwa. ${esc(loan.review_note || "")}</div>` : ""}
       ${loan.decision === "pending" ? `<div class="alert alert-info">Ombi linasubiri ukaguzi wa ofisi.</div>` : ""}
@@ -496,6 +522,9 @@
             <table class="table table-sm mb-0"><thead><tr><th>Tarehe</th><th>Kiasi</th><th>Njia</th><th>Maelezo</th></tr></thead>
             <tbody>${payRows}</tbody></table></div></div>
       </div>`;
+
+    const pb = document.getElementById("printLoanBtn");
+    if (pb) pb.addEventListener("click", () => window.print());
 
     const pf = document.getElementById("payForm");
     if (pf) pf.addEventListener("submit", async (e) => {
@@ -585,7 +614,7 @@
 
     v.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => approveDialog(v, +b.dataset.approve)));
     v.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", async () => {
-      const note = prompt("Sababu ya kukataa (hiari):") || "";
+      const note = (prompt("Sababu ya kukataa (hiari):") || "").slice(0, 300);
       const { error } = await sb.rpc("decide_loan", {
         p_loan_id: +b.dataset.reject, p_action: "reject",
         p_rate: null, p_months: null, p_start: null, p_note: note
@@ -597,12 +626,19 @@
 
   async function approveDialog(v, lid) {
     const { data: loan } = await sb.from("loans").select("*").eq("id", lid).maybeSingle();
+    if (!loan) return toast("Mkopo haupatikani.", "danger");
     const rate = prompt(`Riba (%/mwezi) kwa mkopo #${lid}:`, "12");
     if (rate === null) return;
-    const start = prompt("Tarehe ya kuanza (YYYY-MM-DD):", new Date().toISOString().slice(0, 10));
-    if (start === null) return;
+    const rateNum = Number(String(rate).trim());
+    if (!Number.isFinite(rateNum) || rateNum < 0 || rateNum > 100)
+      return toast("Riba iwe kati ya 0 na 100.", "danger");
+    const startRaw = prompt("Tarehe ya kuanza (YYYY-MM-DD):", new Date().toISOString().slice(0, 10));
+    if (startRaw === null) return;
+    const start = startRaw.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start))
+      return toast("Tarehe si sahihi. Tumia mfano 2026-11-08.", "danger");
     const { error } = await sb.rpc("decide_loan", {
-      p_loan_id: lid, p_action: "approve", p_rate: +rate, p_months: loan.months, p_start: start, p_note: ""
+      p_loan_id: lid, p_action: "approve", p_rate: rateNum, p_months: loan.months, p_start: start, p_note: ""
     });
     if (error) return toast(error.message, "danger");
     toast("Ombi limeidhinishwa.", "success"); applicationsView(v);

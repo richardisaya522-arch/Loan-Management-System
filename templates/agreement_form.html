@@ -1,7 +1,7 @@
 <div class="p-3 p-lg-4 bg-body-tertiary border-start border-4 border-warning">
   <div class="text-center mb-4 pb-3 border-bottom">
-    <em class="fst-italic fw-semibold small d-block" style="letter-spacing:.05em">ANTHONY MICROFINANCE</em>
-    <h5 class="mb-1 fw-bold">MKATABA WA KUKOPESHA FEDHA KWA RIBA</h5>
+    <em class="fst-italic fw-semibold small d-block" style="letter-spacing:.05em">ZABURI YA 23 MICROFINANCE</em>
+    <h5 class="mb-1 fw-bold">MKATABA WA KUKOPESHANA FEDHA KWA RIBA</h5>
     <div class="text-muted small">Mkataba wa mkopo #{{ l.id }} &middot; mteja: {{ l.customer }}</div>
   </div>
 
@@ -58,6 +58,27 @@
              placeholder="Jina kamili la shahidi wa mdhamini" required>
     </div>
 
+    <div class="col-12"><hr class="my-1"><div class="form-section">Dhamana ya mkataba</div></div>
+    <div class="col-md-6">
+      <label class="form-label small" for="c1{{ l.id }}">Dhamana Na. 1 (kitu kinachowekwa dhamana)</label>
+      <input class="form-control" id="c1{{ l.id }}" name="collateral_1"
+             placeholder="Mfano: Pikipiki yenye namba ..." required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small" for="c2{{ l.id }}">Dhamana Na. 2 (hiari)</label>
+      <input class="form-control" id="c2{{ l.id }}" name="collateral_2" placeholder="Hiari">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small" for="c3{{ l.id }}">Dhamana Na. 3 (hiari)</label>
+      <input class="form-control" id="c3{{ l.id }}" name="collateral_3" placeholder="Hiari">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small" for="cv{{ l.id }}">Thamani ya dhamana (TZS)</label>
+      <input class="form-control" type="number" min="1" id="cv{{ l.id }}" name="collateral_value"
+             placeholder="Mfano: 500000" required>
+      <div class="form-text">Thamani iliyokubaliwa na pande zote.</div>
+    </div>
+
     <div class="col-12">
       <div class="form-check">
         <input class="form-check-input" type="checkbox" name="accept" id="accept{{ l.id }}" required>
@@ -88,8 +109,14 @@
       <li class="mb-1"><b>MKOPAJI</b> ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
       <li class="mb-1">Kwa kuweka saini <b>MKOPAJI</b> anakiri kukubaliana na utaratibu huu.</li>
       <li class="mb-1">Kwamba <b>MKOPAJI</b> kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
-      <li class="mb-1">Kwamba mnkataba huu unatalsiriwa na sheria za <b>JAMHURI YA MUUNGANO WA TANZANIA</b>,
-        na kwamba upande wowote utakaovunja mkataba huu, hatua kali za kisheria vitachuliwa dhidi yake.</li>
+      <li class="mb-1">Kwamba mkataba huu unatafsiriwa na sheria za <b>JAMHURI YA MUUNGANO WA TANZANIA</b>,
+        na kwamba upande wowote utakaovunja mkataba huu, hatua kali za kisheria zitachukuliwa dhidi yake.</li>
+      <li class="mb-1"><b>DHAMANA:</b> MKOPAJI anakiri kuweka dhamana kama hakikisho la marejesho.
+        Endapo atashindwa kurejesha mkopo wote pamoja na riba ndani ya miezi 3, MKOPESHAJI
+        atatoa notisi ya maandishi ya siku 14; baada ya hapo anaweza kuiuza dhamana kwa bei ya soko
+        (inayothibitishwa kwa tathmini au makubaliano ya pande mbili). Fedha za mauzo
+        zitachukua kiasi cha mkopo, riba halali na gharama za mauzo; ziada itarudishwa kwa MKOPAJI
+        ndani ya siku 7.</li>
     </ol>
   </details>
 </div>

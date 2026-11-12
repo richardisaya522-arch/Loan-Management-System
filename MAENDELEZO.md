@@ -1,12 +1,12 @@
-# MAENDELEZO — ANTHONY MICROFINANCE
+# MAENDELEZO — ZABURI YA 23 MICROFINANCE
 
 > Faili la kuendeleza kazi. Sasisha kila kikao.
 
 ## Tarehe ya mwisho
-2026-11-01
+2026-11-12
 
 ## Lengo
-Mfumo wa kukopesha (ANTHONY MICROFINANCE). Lengo la sasa: **app tuli (HTML/JS) + Supabase**
+Mfumo wa kukopesha (ZABURI YA 23 MICROFINANCE). Lengo la sasa: **app tuli (HTML/JS) + Supabase**
 inayohost kwenye **GitHub Pages**.
 
 ## Hali kwa sasa (summary)
@@ -41,7 +41,8 @@ inayohost kwenye **GitHub Pages**.
 
 ### App tuli (docs/)
 - `index.html`, `app.js`, `style.css`, `config.js`, `schema.sql`
-- Usajili/ingia (simu+password → email ya ndani `NNN@anthony.local`), dashboard ya mteja,
+- Usajili/ingia (simu+password → email ya ndani `NNN@anthony.local` — imeachwa kwa muda ili
+  watumiaji wa zamani wa Supabase waendelee kuingia), dashboard ya mteja,
   kuomba mkopo, profile, maelezo ya mkopo + ratiba + saini, admin (dashboard, maombi, wateja,
   mikopo, malipo, kumbukumbu).
 - Usalama wote uko Supabase (RLS + functions za `security definer`).
@@ -53,9 +54,12 @@ inayohost kwenye **GitHub Pages**.
 
 ## Inayofuata
 1. **Badilisha password ya admin** (`0700000000`) kwenye Dashboard → Authentication → Users.
-2. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
-3. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
-4. (Hiari) Vipimo zaidi vya RLS / CI.
+2. **Hamisha barua pepe za ndani za Supabase** kutoka `@anthony.local` kwenda
+   `@zaburiya23.local`, kisha sasisha `docs/app.js` (`phoneToEmail`). Imeachwa kwa sasa ili
+   watumiaji wa zamani wa app tuli wasikose kuingia.
+3. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
+4. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
+5. (Hiari) Vipimo zaidi vya RLS / CI.
 
 ## CLI ya Supabase — hali
 - `supabase init` + `link` zimefanyika; `supabase/` ina `config.toml` na migrations.

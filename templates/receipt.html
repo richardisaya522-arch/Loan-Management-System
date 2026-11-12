@@ -8,7 +8,7 @@
   button{display:block;margin:1rem auto 0;padding:.5rem 1.2rem} @media print{button{display:none}body{border:0}}
 </style></head><body>
 <div class="brand-in">
-<em class="fst-italic" style="display:block;font-size:.78rem;color:#666;letter-spacing:.04em">ANTHONY MICROFINANCE</em>
+<em class="fst-italic" style="display:block;font-size:.78rem;color:#666;letter-spacing:.04em">ZABURI YA 23 MICROFINANCE</em>
 <h2 style="font-size:1rem">LOAN MANAGEMENT SYSTEM</h2></div><div class="c">Risiti ya malipo</div>
 <div class="r"><span>Namba</span><b>RCP-{{ '%05d' % p.id }}</b></div>
 <div class="r"><span>Tarehe</span><span>{{ p.paid_on }}</span></div>
@@ -18,5 +18,6 @@
 {% if p.note %}<div class="r"><span>Maelezo</span><span>{{ p.note }}</span></div>{% endif %}
 <div class="big">{{ p.amount|tzs }}</div>
 <div class="c">Asante kwa malipo yako.</div>
-<button onclick="window.print()">Chapisha</button>
+<button id="printBtn">Chapisha</button>
+<script nonce="{{ csp_nonce() }}">document.getElementById('printBtn').addEventListener('click', function () { window.print(); });</script>
 </body></html>

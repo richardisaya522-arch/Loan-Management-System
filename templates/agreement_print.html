@@ -2,12 +2,14 @@
 <html lang="sw">
 <head>
   <meta charset="utf-8">
-  <title>Mkataba #{{ g.loan_id }} | ANTHONY MICROFINANCE</title>
+  <title>Mkataba #{{ g.loan_id }} | ZABURI YA 23 MICROFINANCE</title>
   <style>
     body { font-family: Arial, sans-serif; max-width:760px; margin:2rem auto; padding:1.5rem; color:#111; }
     .brand { text-align:center; margin-bottom:.4rem; }
     .brand em { font-size:.85rem; letter-spacing:.06em; color:#444; }
     h1 { text-align:center; font-size:1.25rem; margin:0 0 .2rem; text-transform:uppercase; }
+    h2.section { font-size:1rem; text-transform:uppercase; border-bottom:1px solid #999;
+                 padding-bottom:.25rem; margin:1.6rem 0 .6rem; }
     .sub { text-align:center; color:#555; font-size:.85rem; margin-bottom:1.4rem; }
     p { line-height:1.75; text-align:justify; font-size:.94rem; margin:.7rem 0; }
     .kv { width:100%; border-collapse:collapse; margin:.6rem 0 1rem; }
@@ -25,8 +27,8 @@
   </style>
 </head>
 <body>
-  <div class="brand"><em>ANTHONY MICROFINANCE</em></div>
-  <h1>Mkataba wa Kukopesha Fedha kwa Riba</h1>
+  <div class="brand"><em>ZABURI YA 23 MICROFINANCE</em></div>
+  <h1>Mkataba wa Kukopeshana Fedha kwa Riba</h1>
   <div class="sub">Namba ya mkataba: AGR-{{ '%05d' % g.id }} &middot; Mkopo #{{ g.loan_id }}</div>
 
   <p>
@@ -46,7 +48,7 @@
   <ol type="a">
     <li>MKOPAJI amekopa fedha kiasi cha
       <b>TZS {{ '{:,}'.format(g.principal) }}</b>, ambapo ameahidi kulipa fedha hizo kiasi cha
-      <b>TZS {{ '{:,}'.format(g.total) }}</b> (ribahai ya
+      <b>TZS {{ '{:,}'.format(g.total) }}</b> (riba ya
       TZS {{ '{:,}'.format(g.interest) }}) kwa muda wa
       <b>{{ g.period_months }} miezi</b>, ifikapo tarehe <b>{{ g.repay_by }}</b>.</li>
     <li>MKOPAJI ana wajibu wa kumtafuta MKOPESHAJI wake mara anapohitaji kurudisha deni lake,
@@ -54,9 +56,9 @@
     <li>MKOPAJI ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
     <li>Kwa kuweka saini, MKOPAJI anakiri kukubaliana na utaratibu huu.</li>
     <li>Kwamba MKOPAJI kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
-    <li>Kwamba mnkataba huu unatalsiriwa na sheria za JAMHURI YA MUUNGANO WA TANZANIA,
+    <li>Kwamba mkataba huu unatafsiriwa na sheria za JAMHURI YA MUUNGANO WA TANZANIA,
       na kwamba upande wowote utakaovunja mkataba huu, hatua kali za kisheria
-      vitachuliwa dhidi yake.</li>
+      zitachukuliwa dhidi yake.</li>
     <li><b>MDHAMINI</b>{% if g.guarantor %} <b>{{ g.guarantor }}</b>{% endif %} amesaini kama mdhamini
       wa mkopo huu, na anakubali kuwajibika kuhakikisha deni hili linalipwa kwa wakati.</li>
   </ol>
@@ -70,6 +72,30 @@
     <tr><td>Tarehe ya mwisho ya kulipa</td><td>{{ g.repay_by }}</td></tr>
     {% if g.purpose %}<tr><td>Matumizi ya mkopo</td><td>{{ g.purpose }}</td></tr>{% endif %}
   </table>
+
+  <h2 class="section">Dhamana ya Mkataba</h2>
+  <p>
+    Wahusika (MKOPESHAJI na MKOPAJI) wamekubaliana kuweka dhamana kama hakikisho la marejesho
+    ya mkopo huu kama ifuatavyo. MKOPAJI anakiri kuweka dhamana zifuatazo:
+  </p>
+  <table class="kv">
+    <tr><td>Dhamana Na. 1</td><td>{{ g.collateral_1 or '—' }}</td></tr>
+    {% if g.collateral_2 %}<tr><td>Dhamana Na. 2</td><td>{{ g.collateral_2 }}</td></tr>{% endif %}
+    {% if g.collateral_3 %}<tr><td>Dhamana Na. 3</td><td>{{ g.collateral_3 }}</td></tr>{% endif %}
+    <tr><td>Thamani ya dhamana</td><td>TZS {{ '{:,}'.format(g.collateral_value or 0) }}</td></tr>
+  </table>
+  <p>
+    Endapo MKOPAJI atashindwa kurejesha mkopo wote pamoja na riba ndani ya miezi 3 kuanzia
+    tarehe ya mkataba huu, utaratibu ufuatao utafuatwa na MKOPESHAJI badala ya kuchukua mali
+    moja kwa moja:
+  </p>
+  <ol type="i">
+    <li>MKOPESHAJI atatoa notisi ya maandishi ya siku 14 kwa MKOPAJI kumtaka alipe deni.</li>
+    <li>Baada ya notisi kuisha bila malipo, MKOPESHAJI atakuwa na haki ya kuiuza dhamana hiyo kwa
+      bei ya soko. Bei ya soko itathibitishwa kwa tathmini au makubaliano ya pande mbili.</li>
+    <li>Fedha zitakazopatikana kwa mauzo, MKOPESHAJI atachukua tu kiasi cha mkopo, riba halali na
+      gharama za mauzo. Kama kutabaki ziada, MKOPESHAJI atarudisha ziada hiyo kwa MKOPAJI ndani ya siku 7.</li>
+  </ol>
 
   <p>
     Wahusika wamekubaliana kama ilivyo hapo juu na kuweka saini zao kama ifuatavyo hapo chini.
@@ -91,10 +117,11 @@
   </table>
 
   <div class="note">
-    Mkataba huu umetengenezwa na mfumo wa ANTHONY MICROFINANCE. Sahihi za MKOPESHAJI na
+    Mkataba huu umetengenezwa na mfumo wa ZABURI YA 23 MICROFINANCE. Sahihi za MKOPESHAJI na
     SHAHIDI WA MKOPESHAJI zinaweza kuongezwa mkononi baada ya kupeleka nakala halisi.
   </div>
 
-  <button onclick="window.print()">Chapisha / PDF</button>
+  <button id="printBtn">Chapisha / PDF</button>
+  <script nonce="{{ csp_nonce() }}">document.getElementById('printBtn').addEventListener('click', function () { window.print(); });</script>
 </body>
 </html>

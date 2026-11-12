@@ -1,4 +1,4 @@
-"""ANTHONY MICROFINANCE - LOAN MANAGEMENT SYSTEM (Flask + SQLite).
+"""ZABURI YA 23 MICROFINANCE - LOAN MANAGEMENT SYSTEM (Flask + SQLite).
 
 Mfumo wa kukopesha wenye usajili wa waombaji."""
 import calendar
@@ -8,11 +8,12 @@ import secrets
 import sqlite3
 import time
 from collections import Counter, defaultdict
-from datetime import date
+from datetime import date, timedelta
 from functools import wraps
 
 from flask import (Flask, abort, flash, g, redirect, render_template,
                    request, session, url_for)
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -33,11 +34,33 @@ def _secret_key():
     new = secrets.token_hex(32)
     with open(path, "w") as fh:
         fh.write(new)
+    try:
+        os.chmod(path, 0o600)   # mmiliki pekee asome (Linux/macOS)
+    except OSError:
+        pass
     return new
 
 
 app.secret_key = _secret_key()
-app.config.update(SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_HTTPONLY=True)
+
+# ---------- Usanidi wa usalama ----------
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "0") == "1"
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=COOKIE_SECURE,
+    SESSION_COOKIE_NAME="__Host-lms_session" if COOKIE_SECURE else "lms_session",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    MAX_CONTENT_LENGTH=1 * 1024 * 1024,   # maombi yasizidi 1MB (kinga ya DoS)
+)
+SESSION_IDLE_SECONDS = int(os.environ.get("SESSION_IDLE_MINUTES", "30")) * 60
+# Nyuma ya reverse proxy (nginx, Render, Fly) weka TRUST_PROXY=1.
+if os.environ.get("TRUST_PROXY", "0") == "1":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+# Ruhusu host maalum pekee kama zimewekwa (kinga ya Host header attacks).
+_hosts = [h.strip() for h in os.environ.get("TRUSTED_HOSTS", "").split(",") if h.strip()]
+if _hosts:
+    app.config["TRUSTED_HOSTS"] = _hosts
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DB_PATH", os.path.join(APP_DIR, "loans.db"))
 BACKUP_DIR = os.environ.get("BACKUP_DIR", os.path.join(APP_DIR, "backups"))
@@ -45,7 +68,7 @@ BACKUP_KEEP = 14   # idadi ya nakala za hivi karibuni za kubakiza
 METHODS = ["Cash", "M-Pesa", "Tigo Pesa", "Airtel Money", "Benki"]
 MIN_LOAN, MAX_LOAN, MAX_MONTHS = 50_000, 2_000_000, 24   # mipaka ya maombi ya wateja
 MAX_ACTIVE_LOANS = 2   # idadi ya juu ya mikopo inayoendelea (haijalipwa) kwa mteja
-LENDER = "ANTHONY MICROFINANCE"   # ndiye MKOPESHAJI kwenye mkataba
+LENDER = "ZABURI YA 23 MICROFINANCE"   # ndiye MKOPESHAJI kwenye mkataba
 
 # Pesa = namba kamili (TZS), si desimali.
 SCHEMA = """
@@ -85,6 +108,7 @@ CREATE TABLE IF NOT EXISTS agreements(
   borrower TEXT, borrower_witness TEXT, borrower_sign TEXT,
   lender TEXT, lender_witness TEXT, lender_sign TEXT,
   guarantor TEXT, guarantor_phone TEXT, guarantor_sign TEXT, guarantor_witness TEXT,
+  collateral_1 TEXT, collateral_2 TEXT, collateral_3 TEXT, collateral_value INTEGER,
   accepted INTEGER NOT NULL DEFAULT 0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS audit(
@@ -102,7 +126,9 @@ MIGRATIONS = {  # kwa database ya zamani isiyo na safu hizi
     "loans": [("decision", "TEXT NOT NULL DEFAULT 'approved'"), ("purpose", "TEXT"),
               ("review_note", "TEXT"), ("applied_at", "TEXT")],
     "agreements": [("guarantor", "TEXT"), ("guarantor_phone", "TEXT"),
-                   ("guarantor_sign", "TEXT"), ("guarantor_witness", "TEXT")],
+                   ("guarantor_sign", "TEXT"), ("guarantor_witness", "TEXT"),
+                   ("collateral_1", "TEXT"), ("collateral_2", "TEXT"),
+                   ("collateral_3", "TEXT"), ("collateral_value", "INTEGER")],
 }
 LOAN_SQL = """
 SELECT l.*, c.name AS customer, c.phone,
@@ -208,6 +234,11 @@ def init_db():
         db.execute("INSERT INTO users(username, password_hash, role) VALUES('admin',?, 'admin')",
                    (generate_password_hash(pw),))
         print("Akaunti ya kwanza: admin /", pw, "- ibadilishe!")
+    else:
+        u = db.execute("SELECT password_hash FROM users WHERE role='admin' LIMIT 1").fetchone()
+        if u and check_password_hash(u[0], "admin123"):
+            print("ONYO: admin bado anatumia password ya kawaida 'admin123'. "
+                  "Atalazimika kuibadilisha akiingia.")
     db.execute("UPDATE payments SET method='Cash' WHERE method='Taslimu'")   # rudisha hali ya awali
     db.commit()
     db.close()
@@ -259,6 +290,40 @@ app.jinja_env.globals["csrf"] = csrf
 app.jinja_env.filters["tzs"] = lambda v: "TZS {:,}".format(int(v or 0))
 
 
+def csp_nonce():
+    """Nonce ya kipekee kwa kila request, kwa Content-Security-Policy."""
+    if "csp_nonce" not in g:
+        g.csp_nonce = secrets.token_urlsafe(16)
+    return g.csp_nonce
+
+
+app.jinja_env.globals["csp_nonce"] = csp_nonce
+
+
+@app.after_request
+def security_headers(resp):
+    nonce = csp_nonce()
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data:; font-src 'self' data: https://cdn.jsdelivr.net; "
+        "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+        "form-action 'self'; frame-ancestors 'none'"
+    )
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    resp.headers["X-XSS-Protection"] = "0"
+    if request.endpoint != "static":
+        resp.headers["Cache-Control"] = "no-store"
+    if request.is_secure or os.environ.get("HSTS", "0") == "1":
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resp
+
+
 @app.context_processor
 def inject():
     n = 0
@@ -275,10 +340,36 @@ def csrf_protect():
             abort(400)
 
 
+@app.before_request
+def session_guard():
+    csp_nonce()   # tengeneza nonce ya CSP kwa request hii
+    if "user" in session:
+        now = time.time()
+        try:
+            last = float(session.get("_last_seen", 0))
+        except (TypeError, ValueError):
+            last = 0
+        if last and now - last > SESSION_IDLE_SECONDS:
+            session.clear()
+            flash("Kipindi chako kimeisha kwa ukimya. Tafadhali ingia tena.", "warning")
+            return redirect(url_for("login"))
+        session["_last_seen"] = now
+        if session.get("must_change_password") and request.endpoint not in (
+                "change_password", "logout", "static", "login"):
+            flash("Kwa usalama, badilisha password ya admin ya awali kabla ya kuendelea.", "warning")
+            return redirect(url_for("change_password"))
+
+
 @app.errorhandler(400)
 def bad_request(_):
     flash("Kipindi chako kimeisha au ukurasa umepitwa na wakati. Tafadhali ingia tena.",
           "warning")
+    return redirect(url_for("login")), 303
+
+
+@app.errorhandler(413)
+def too_large(_):
+    flash("Ombi ni kubwa mno. Tafadhali tumia ukurasa sahihi.", "danger")
     return redirect(url_for("login")), 303
 
 
@@ -315,6 +406,28 @@ def norm_phone(p):
 
 def valid_phone(p):
     return bool(re.fullmatch(r"0[67]\d{8}", p))
+
+
+COMMON_PASSWORDS = {
+    "password", "password1", "password123", "12345678", "123456789", "1234567890",
+    "qwerty123", "qwertyuiop", "admin123", "admin1234", "11111111", "00000000",
+    "iloveyou", "welcome1", "abc12345", "letmein1", "changeme", "tanzania",
+}
+
+
+def password_problem(pw, username=""):
+    """Rudi ujumbe wa hitilafu kama password ni dhaifu, au None kama ni sawa."""
+    if len(pw) < 8:
+        return "Password iwe angalau herufi 8."
+    if len(pw) > 128:
+        return "Password isizidi herufi 128."
+    if pw.lower() in COMMON_PASSWORDS:
+        return "Password hii ni rahisi kubashiri. Tumia password nyingine."
+    if username and pw.lower() == str(username).lower():
+        return "Password isiwe sawa na jina au namba yako."
+    if pw.isdigit() or pw.isalpha():
+        return "Changanya herufi pamoja na nambari au alama."
+    return None
 
 
 def to_int(value):
@@ -359,8 +472,8 @@ def register():
     e = {}
     if request.method == "POST":
         f = request.form
-        name, phone = f.get("name", "").strip(), norm_phone(f.get("phone", ""))
-        email = f.get("email", "").strip()
+        name, phone = f.get("name", "").strip()[:120], norm_phone(f.get("phone", ""))
+        email = f.get("email", "").strip()[:160]
         pw, pw2 = f.get("password", ""), f.get("password2", "")
         if len(name) < 3:
             e["name"] = "Jina kamili liwe angalau herufi 3."
@@ -368,8 +481,9 @@ def register():
             e["phone"] = "Namba ya simu si sahihi. Mfano: 0712345678"
         if email and not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", email):
             e["email"] = "Barua pepe si sahihi. Mfano: jina@mfano.com"
-        if len(pw) < 8:
-            e["password"] = "Password iwe angalau herufi 8."
+        pw_err = password_problem(pw, phone)
+        if pw_err:
+            e["password"] = pw_err
         if pw != pw2:
             e["password2"] = "Password mbili hazifanani."
         if not f.get("consent"):
@@ -396,8 +510,9 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        ident = request.form.get("username", "").strip()
+        ident = request.form.get("username", "").strip()[:120]
         ident = norm_phone(ident) if re.match(r"[+\d]", ident) else ident
+        password = request.form.get("password", "")[:256]
         key = f"{request.remote_addr}|{ident.lower()}"
         if throttled(key):
             flash("Majaribio mengi yasiyo sahihi. Subiri dakika 5 ujaribu tena.", "danger")
@@ -407,9 +522,13 @@ def login():
             session["signup_phone"] = ident      # mteja lazima ajisajili kwanza
             flash("Namba hii haijasajiliwa bado. Jisajili kwanza ili kuweka ombi lako.", "warning")
             return redirect(url_for("register"))
-        if u and check_password_hash(u["password_hash"], request.form.get("password", "")):
+        if u and check_password_hash(u["password_hash"], password):
             session.clear()
-            session.update(user=u["username"], role=u["role"], customer_id=u["customer_id"])
+            session.permanent = True
+            session.update(user=u["username"], role=u["role"], customer_id=u["customer_id"],
+                           _last_seen=time.time())
+            if u["role"] == "admin" and check_password_hash(u["password_hash"], "admin123"):
+                session["must_change_password"] = True
             audit("login", f"user:{u['username']}", f"role={u['role']}")
             if u["role"] == "customer":
                 c = get_db().execute("SELECT profile_done FROM customers WHERE id=?",
@@ -419,6 +538,7 @@ def login():
                     return redirect(url_for("profile"))
             return redirect(url_for("dashboard"))
         FAILS[key].append(time.time())
+        audit("login.fail", f"user:{ident}", f"ip={request.remote_addr}")
         flash("Jina/simu au password si sahihi.", "danger")
     return render_template("login.html")
 
@@ -434,21 +554,23 @@ def logout():
 def change_password():
     e = {}
     if request.method == "POST":
-        cur = request.form.get("password", "")
+        cur = request.form.get("password", "")[:256]
         new = request.form.get("password_new", "")
         new2 = request.form.get("password_new2", "")
         db = get_db()
         u = db.execute("SELECT * FROM users WHERE username=?", (session["user"],)).fetchone()
         if u is None or not check_password_hash(u["password_hash"], cur):
             e["password"] = "Password ya sasa si sahihi."
-        if len(new) < 8:
-            e["password_new"] = "Password mpya iwe angalau herufi 8."
+        pw_err = password_problem(new, session["user"])
+        if pw_err:
+            e["password_new"] = pw_err
         elif new != new2:
             e["password_new2"] = "Password mbili hazifanani."
         if not e:
             db.execute("UPDATE users SET password_hash=? WHERE id=?",
                        (generate_password_hash(new), u["id"]))
             db.commit()
+            session.pop("must_change_password", None)
             flash("Password yako imebadilishwa kwa mafanikio.", "success")
             return redirect(url_for("dashboard" if session["role"] == "admin" else "me"))
         flash("Hakikisha taarifa za password ni sahihi.", "danger")
@@ -473,8 +595,9 @@ def forgot():
             e["phone"] = "Namba ya simu si sahihi. Mfano: 0712345678"
         if len(f["name"].split()) < 3:
             e["name"] = "Andika majina matatu kamili kama yalivyo kwenye profile yako."
-        if len(new) < 8:
-            e["password"] = "Password mpya iwe angalau herufi 8."
+        pw_err = password_problem(new, f["phone"])
+        if pw_err:
+            e["password"] = pw_err
         elif new != new2:
             e["password2"] = "Password mbili hazifanani."
         if not e:
@@ -743,15 +866,21 @@ def sign_agreement(lid):
            f"Jina la saini ya mdhamini liwe kama jina la mdhamini: {guarantor}."
            if guarantor and gsign.lower() != guarantor.lower() else
            "Weka jina la shahidi wa mdhamini."
-           if len(f.get("guarantor_witness", "").strip()) < 3 else None)
+           if len(f.get("guarantor_witness", "").strip()) < 3 else
+           "Weka dhamana ya kwanza (kitu kinachowekwa kama dhamana)."
+           if len(f.get("collateral_1", "").strip()) < 3 else
+           "Weka thamani ya dhamana kwa TZS."
+           if not to_int(f.get("collateral_value")) else None)
     if err:
         flash(err, "danger")
         return redirect(url_for("loan", lid=lid))
+    collateral_value = to_int(f.get("collateral_value"))
     db.execute("""INSERT INTO agreements
         (loan_id, place, signed_on, purpose, principal, interest, total, period_months, repay_by,
          borrower, borrower_witness, borrower_sign, lender, guarantor, guarantor_phone,
-         guarantor_sign, guarantor_witness, accepted)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+         guarantor_sign, guarantor_witness, collateral_1, collateral_2, collateral_3,
+         collateral_value, accepted)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
         ON CONFLICT(loan_id) DO UPDATE SET
           place=excluded.place, signed_on=excluded.signed_on, purpose=excluded.purpose,
           principal=excluded.principal, interest=excluded.interest, total=excluded.total,
@@ -759,12 +888,16 @@ def sign_agreement(lid):
           borrower=excluded.borrower, borrower_witness=excluded.borrower_witness,
           borrower_sign=excluded.borrower_sign, guarantor=excluded.guarantor,
           guarantor_phone=excluded.guarantor_phone, guarantor_sign=excluded.guarantor_sign,
-          guarantor_witness=excluded.guarantor_witness, accepted=1""",
+          guarantor_witness=excluded.guarantor_witness, collateral_1=excluded.collateral_1,
+          collateral_2=excluded.collateral_2, collateral_3=excluded.collateral_3,
+          collateral_value=excluded.collateral_value, accepted=1""",
         (lid, f.get("place", "").strip()[:120], to_date(f.get("signed_on")).isoformat(),
          info["purpose"], info["principal"], info["interest"], info["total"], info["months"],
          last["due"].isoformat(), borrower, f.get("borrower_witness", "").strip()[:80], sign,
          LENDER, guarantor or gsign, (info.get("guarantor_phone") or "").strip(), gsign,
-         f.get("guarantor_witness", "").strip()[:80]))
+         f.get("guarantor_witness", "").strip()[:80],
+         f.get("collateral_1", "").strip()[:160], f.get("collateral_2", "").strip()[:160],
+         f.get("collateral_3", "").strip()[:160], collateral_value))
     db.commit()
     audit("agreement.borrower_sign", f"loan#{lid}", sign)
     flash("Mkataba umesainiwa kwa mafanikio.", "success")
@@ -1021,7 +1154,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     try:
         from waitress import serve   # server ya production
-        print(f"ANTHONY MICROFINANCE inaendesha kwenye http://{host}:{port}")
+        print(f"ZABURI YA 23 MICROFINANCE inaendesha kwenye http://{host}:{port}")
         serve(app, host=host, port=port, threads=8)
     except ImportError:
         print("waitress haipo — server ya maendeleo pekee. Fanya: pip install waitress")

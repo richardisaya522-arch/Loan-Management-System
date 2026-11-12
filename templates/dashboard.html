@@ -59,7 +59,7 @@
 {% endblock %}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 new Chart(document.getElementById('payChart'), {type:'bar',
   data:{labels:{{ chart_months|tojson }}, datasets:[{label:'TZS', data:{{ chart_pay|tojson }}, backgroundColor:'#0e9f8e', borderRadius:6}]},
   options:{plugins:{legend:{display:false}}}});

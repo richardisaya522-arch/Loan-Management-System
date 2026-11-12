@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Jisajili | ANTHONY MICROFINANCE{% endblock %}
+{% block title %}Jisajili | ZABURI YA 23 MICROFINANCE{% endblock %}
 {% block content %}
 <div class="row g-0 auth-card">
 
@@ -7,7 +7,7 @@
     <div class="d-flex align-items-center gap-2 mb-4">
       <span class="auth-logo"><i class="bi bi-cash-coin brand-ico"></i></span>
       <span class="d-flex flex-column lh-sm brand-in">
-        <em class="fst-italic fw-semibold" style="font-size:.78rem">ANTHONY MICROFINANCE</em>
+        <em class="fst-italic fw-semibold" style="font-size:.78rem">ZABURI YA 23 MICROFINANCE</em>
         <span class="fw-bold brand-name">LOAN MANAGEMENT SYSTEM</span>
       </span>
     </div>
@@ -96,7 +96,7 @@
                name="consent" id="consent" {{ 'checked' if f.get('consent') }} required>
         <label class="form-check-label small" for="consent">
           Nathibitisha kuwa taarifa nilizoweka ni sahihi na nakubali
-          <a href="#" onclick="return false">Masharti ya matumizi</a> na <a href="#" onclick="return false">Sera ya faragha</a>.
+          <a href="#" class="text-decoration-underline">Masharti ya matumizi</a> na <a href="#" class="text-decoration-underline">Sera ya faragha</a>.
         </label>
         <div class="invalid-feedback">{{ e.get('consent') or '' }}</div>
       </div>
@@ -113,7 +113,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 const PASSWORD = document.getElementById('password');
 const CONFIRM = document.getElementById('password2');
 const BARS = [...document.querySelectorAll('.pw-meter i')];

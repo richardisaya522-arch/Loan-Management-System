@@ -29,7 +29,7 @@
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const tzs = (v) => "TZS " + Number(v || 0).toLocaleString("en-US");
   const digits = (p) => String(p || "").replace(/\D/g, "");
-  const phoneToEmail = (phone) => digits(phone) + "@anthony.local";
+  const phoneToEmail = (phone) => digits(phone) + "@zaburiya23.local";
   const validPhone = (p) => /^(0[67]\d{8}|255[67]\d{8})$/.test(digits(p));
   const normPhone = (p) => { let d = digits(p); if (d.startsWith("255")) d = "0" + d.slice(3); return d; };
 

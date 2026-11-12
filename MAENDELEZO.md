@@ -41,8 +41,7 @@ inayohost kwenye **GitHub Pages**.
 
 ### App tuli (docs/)
 - `index.html`, `app.js`, `style.css`, `config.js`, `schema.sql`
-- Usajili/ingia (simu+password → email ya ndani `NNN@anthony.local` — imeachwa kwa muda ili
-  watumiaji wa zamani wa Supabase waendelee kuingia), dashboard ya mteja,
+- Usajili/ingia (simu+password → email ya ndani `NNN@zaburiya23.local`), dashboard ya mteja,
   kuomba mkopo, profile, maelezo ya mkopo + ratiba + saini, admin (dashboard, maombi, wateja,
   mikopo, malipo, kumbukumbu).
 - Usalama wote uko Supabase (RLS + functions za `security definer`).
@@ -54,17 +53,17 @@ inayohost kwenye **GitHub Pages**.
 
 ## Inayofuata
 1. **Badilisha password ya admin** (`0700000000`) kwenye Dashboard → Authentication → Users.
-2. **Hamisha barua pepe za ndani za Supabase** kutoka `@anthony.local` kwenda
-   `@zaburiya23.local`, kisha sasisha `docs/app.js` (`phoneToEmail`). Imeachwa kwa sasa ili
-   watumiaji wa zamani wa app tuli wasikose kuingia.
-3. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
-4. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
-5. (Hiari) Vipimo zaidi vya RLS / CI.
+2. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
+3. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
+4. (Hiari) Vipimo zaidi vya RLS / CI.
 
 ## CLI ya Supabase — hali
 - `supabase init` + `link` zimefanyika; `supabase/` ina `config.toml` na migrations.
 - `supabase migration list`, `supabase db query --linked "..."`, `supabase config push` zinafanya kazi.
 - Config ya auth ilisasishwa kupitia Management API (captcha off, site_url/allow-list).
+- **2026-11-12:** migration `20261108120000_security_hardening.sql` imepushwa remote
+  (`db push --remote`), na akaunti ya admin `0700000000` imehamishiwa
+  `0700000000@zaburiya23.local` (auth.users + auth.identities).
 
 ## Vidokezo / maamuzi
 - Auth: **namba ya simu + password** (bila SMS). Simu hubadilishwa kuwa barua pepe ya ndani.
@@ -81,7 +80,8 @@ inayohost kwenye **GitHub Pages**.
 # Git
 git add -A ; git commit -m "..." ; git push
 
-# Supabase (ndani ya repo)
-supabase migration list
-supabase db query --linked "select username, role from public.profiles;"
+# Supabase (ndani ya repo; tumia npx.cmd kama `supabase` haipo kwenye PATH)
+npx.cmd --yes supabase@latest migration list --remote
+npx.cmd --yes supabase@latest db query --remote --read-only "select username, role from public.profiles;"
+npx.cmd --yes supabase@latest db push --remote
 ```

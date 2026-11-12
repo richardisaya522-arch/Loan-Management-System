@@ -64,6 +64,11 @@ inayohost kwenye **GitHub Pages**.
 - **2026-11-12:** migration `20261108120000_security_hardening.sql` imepushwa remote
   (`db push --remote`), na akaunti ya admin `0700000000` imehamishiwa
   `0700000000@zaburiya23.local` (auth.users + auth.identities).
+- **2026-11-12:** captcha ilikuwa imewashwa remote (`hcaptcha`) na ilizuia usajili/ingia wa app
+  tuli; imezimwa tena kwa `config push` ya minimal (`auth.captcha.enabled=false`). Mipangilio
+  mingine ya remote (site_url, password requirements, MFA, n.k.) haikuguswa.
+- **2026-11-12:** jaribio la live (signup → `save_profile` → `apply_loan`) limepita; `anon`
+  `apply_loan` imekataliwa; data ya jaribio imefutwa.
 
 ## Vidokezo / maamuzi
 - Auth: **namba ya simu + password** (bila SMS). Simu hubadilishwa kuwa barua pepe ya ndani.

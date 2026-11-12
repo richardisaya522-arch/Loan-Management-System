@@ -52,10 +52,9 @@ inayohost kwenye **GitHub Pages**.
   kinatuma zote 6 (`p_rate`, `p_months`, `p_start` = `null`).
 
 ## Inayofuata
-1. **Badilisha password ya admin** (`0700000000`) kwenye Dashboard → Authentication → Users.
-2. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
-3. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
-4. (Hiari) Vipimo zaidi vya RLS / CI.
+1. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
+2. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
+3. (Hiari) Vipimo zaidi vya RLS / CI.
 
 ## CLI ya Supabase — hali
 - `supabase init` + `link` zimefanyika; `supabase/` ina `config.toml` na migrations.
@@ -69,6 +68,8 @@ inayohost kwenye **GitHub Pages**.
   mingine ya remote (site_url, password requirements, MFA, n.k.) haikuguswa.
 - **2026-11-12:** jaribio la live (signup → `save_profile` → `apply_loan`) limepita; `anon`
   `apply_loan` imekataliwa; data ya jaribio imefutwa.
+- **2026-11-12:** password ya admin `0700000000` imebadilishwa na kuthibitishwa kwa login halisi
+  (`role=admin`). Hifadhi password hiyo kwenye password manager; usiweke kwenye repo.
 
 ## Vidokezo / maamuzi
 - Auth: **namba ya simu + password** (bila SMS). Simu hubadilishwa kuwa barua pepe ya ndani.

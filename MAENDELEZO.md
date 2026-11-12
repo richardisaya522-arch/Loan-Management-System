@@ -68,8 +68,9 @@ inayohost kwenye **GitHub Pages**.
   mingine ya remote (site_url, password requirements, MFA, n.k.) haikuguswa.
 - **2026-11-12:** jaribio la live (signup → `save_profile` → `apply_loan`) limepita; `anon`
   `apply_loan` imekataliwa; data ya jaribio imefutwa.
-- **2026-11-12:** password ya admin `0700000000` imebadilishwa na kuthibitishwa kwa login halisi
-  (`role=admin`). Hifadhi password hiyo kwenye password manager; usiweke kwenye repo.
+- **2026-11-12:** password za admin zimebadilishwa na kuthibitishwa: Supabase `0700000000`
+  (login halisi, `role=admin`) na Flask `admin` (login ya test client). Hifadhi kwenye password
+  manager; usiweke kwenye repo.
 
 ## Vidokezo / maamuzi
 - Auth: **namba ya simu + password** (bila SMS). Simu hubadilishwa kuwa barua pepe ya ndani.

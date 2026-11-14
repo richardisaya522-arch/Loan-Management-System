@@ -3,7 +3,7 @@
 > Faili la kuendeleza kazi. Sasisha kila kikao.
 
 ## Tarehe ya mwisho
-2026-11-12
+2026-11-14
 
 ## Lengo
 Mfumo wa kukopesha (ZABURI YA 23 MICROFINANCE). Lengo la sasa: **app tuli (HTML/JS) + Supabase**
@@ -23,8 +23,8 @@ inayohost kwenye **GitHub Pages**.
   - `20261101090000_harden_loan_workflows`
 - **Auth config (remote):** `mailer_autoconfirm = true` (Confirm email OFF),
   `security_captcha_enabled = false`, `site_url` + `uri_allow_list` = Pages URL.
-- **Admin:** `0700000000` (`role = admin`). Password ni ya muda — **ibadilishe**
-  (Dashboard → Authentication → Users).
+- **Admin:** `officiallytony520@gmail.com` (`role = admin`, namba `0700000000`).
+  Password imebadilishwa na inatumika pia kuingia kwa simu. Usiweke password kwenye repo.
 - **GitHub Pages:** https://richardisaya522-arch.github.io/Loan-Management-System/ (HTTP 200).
 
 ## Kilichokamilika
@@ -51,8 +51,29 @@ inayohost kwenye **GitHub Pages**.
 - **Bug iliyorekebishwa:** kitufe cha "Kataa" kilituma hoja 3 tu kwa `decide_loan`; sasa
   kinatuma zote 6 (`p_rate`, `p_months`, `p_start` = `null`).
 
+### 2026-11-14 — Auth ya kweli + data moja
+- **Chanzo cha mkanganyiko:** mfumo una matoleo mawili — app tuli (Supabase, data moja)
+  na Flask (SQLite ya ndani). Flask sasa ina bango la "Toleo la ndani (localhost)"
+  linaloelekeza kwenye mfumo rasmi; app tuli inaonyesha project ref + toleo.
+- **Usajili:** jina, barua pepe halisi, simu + password. Trigger `handle_new_user`
+  inahifadhi `profiles.email`, `customers.name/phone/email`; `profiles` ina column `email`.
+- **Kuingia:** barua pepe **au** simu + password kupitia Edge Function `login`
+  (service_role ndani ya function; browser haioni key ya siri).
+- **Umesahau password:** `resetPasswordForEmail` → barua pepe halisi → kiungo kinarudi
+  Pages (`#/reset-password`) → mtumiaji anaweka + kuthibitisha password mpya.
+- **Admin:** auth email imehamishwa hadi `officiallytony520@gmail.com`; password mpya
+  imewekwa na kujaribiwa (email + simu). Mteja `0621360599` amehamishwa hadi
+  `comradedemafia@gmail.com`.
+- **Edge Function `admin-reset-password`:** ime-deploy na kujaribiwa end-to-end
+  (temp user → reset → login → delete). Bila JWT inarudisha 401.
+- **Cache-busting:** `index.html` inatumia `?v=20261114` kwa `app.js`/`config.js`/`style.css`.
+- **Migrations mpya:** `20261114090000_real_email_auth.sql` (imepushwa remote).
+- **Vipimo:** login email OK, login simu OK, password mbaya 401, reset request 200,
+  `admin-reset-password` 401 bila auth, reset→login OK.
+
 ## Inayofuata
-1. (Hiari) Ongeza UI ya kubadilisha password ndani ya app (inahitaji Edge Function).
+1. **Muhimu:** weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase ili reset
+   emails zifike kwa uhakika; default ina kikomo cha ~2 kwa saa.
 2. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
 3. (Hiari) Vipimo zaidi vya RLS / CI.
 
@@ -71,12 +92,24 @@ inayohost kwenye **GitHub Pages**.
 - **2026-11-12:** password za admin zimebadilishwa na kuthibitishwa: Supabase `0700000000`
   (login halisi, `role=admin`) na Flask `admin` (login ya test client). Hifadhi kwenye password
   manager; usiweke kwenye repo.
+- **2026-11-14:** `db push --linked --yes` imeandikisha `20261114090000_real_email_auth.sql`.
+  `functions deploy login --no-verify-jwt` na `functions deploy admin-reset-password`
+  zimefanyika kwa `--use-api`. Admin email/password na customer email zimebadilishwa kupitia
+  GoTrue Admin API; `profiles.email` imesawazishwa na trigger.
+- **Kumbuka:** `supabase config push` haihitajiki sasa — remote ina `site_url` na
+  `additional_redirect_urls` sahihi (Pages). `config.toml` ya local imesawazishwa ili
+  push ya baadaye isivunje.
 
 ## Vidokezo / maamuzi
-- Auth: **namba ya simu + password** (bila SMS). Simu hubadilishwa kuwa barua pepe ya ndani.
-- Kubadilisha password ya mteja: Supabase Dashboard → Authentication → Users.
+- **Mfumo rasmi ni mmoja:** app tuli (`docs/`) + Supabase. Flask ni la ndani tu; bango
+  linaelekeza kwenye Pages.
+- Auth: **barua pepe au namba ya simu + password**. Simu huhifadhiwa kwenye `profiles.username`
+  na `customers.phone`; hakuna SMS/OTP.
+- Reset ya password: Supabase email → Pages (`#/reset-password`). Ongeza custom SMTP kwa
+  uhakika wa kutuma.
+- Kubadilisha password ya mteja: mteja mwenyewe, au admin → mteja → "Weka upya password".
 - Key ya umma ni `sb_publishable_...`; usalama ni RLS. Usiweke `sb_secret_...` kwenye `docs/`.
-- Backup: Supabase inatunza.
+- Backup: Supabase inatunza; admin anaweza kupakua JSON/CSV.
 - Flask (`app.py`) inaachwa kama akiba; haifutwi.
 
 ## Amri muhimu
@@ -89,6 +122,10 @@ git add -A ; git commit -m "..." ; git push
 
 # Supabase (ndani ya repo; tumia npx.cmd kama `supabase` haipo kwenye PATH)
 npx.cmd --yes supabase@latest migration list --remote
-npx.cmd --yes supabase@latest db query --remote --read-only "select username, role from public.profiles;"
-npx.cmd --yes supabase@latest db push --remote
+npx.cmd --yes supabase@latest db query --remote --read-only "select username, role, email from public.profiles;"
+npx.cmd --yes supabase@latest db push --linked --yes
+
+# Edge Functions
+npx.cmd --yes supabase@latest functions deploy login --no-verify-jwt --use-api --yes
+npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --yes
 ```

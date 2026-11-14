@@ -65,6 +65,11 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DB_PATH", os.path.join(APP_DIR, "loans.db"))
 BACKUP_DIR = os.environ.get("BACKUP_DIR", os.path.join(APP_DIR, "backups"))
 BACKUP_KEEP = 14   # idadi ya nakala za hivi karibuni za kubakiza
+# Mfumo rasmi (wa wateja wote) ni app tuli ya Supabase. Flask ni toleo la ndani.
+LIVE_APP_URL = os.environ.get(
+    "LIVE_APP_URL",
+    "https://richardisaya522-arch.github.io/Loan-Management-System/",
+)
 METHODS = ["Cash", "M-Pesa", "Tigo Pesa", "Airtel Money", "Benki"]
 MIN_LOAN, MAX_LOAN, MAX_MONTHS = 50_000, 2_000_000, 24   # mipaka ya maombi ya wateja
 MAX_ACTIVE_LOANS = 2   # idadi ya juu ya mikopo inayoendelea (haijalipwa) kwa mteja
@@ -329,7 +334,7 @@ def inject():
     n = 0
     if session.get("role") == "admin":
         n = get_db().execute("SELECT COUNT(*) FROM loans WHERE decision='pending'").fetchone()[0]
-    return dict(pending_count=n)
+    return dict(pending_count=n, live_app_url=LIVE_APP_URL)
 
 
 @app.before_request

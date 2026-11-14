@@ -99,6 +99,15 @@
   </div>
 </nav>
 <main class="container pb-5">
+  {% if request.host.startswith('127.0.0.1') or request.host.startswith('localhost') %}
+  <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 small">
+    <i class="bi bi-exclamation-triangle mt-1"></i>
+    <div><b>Toleo la ndani (localhost) pekee:</b> data hii iko kwenye SQLite ya kompyuta hii.
+      Wateja wote wanapaswa kutumia mfumo mmoja rasmi:
+      <a href="{{ live_app_url }}" target="_blank" rel="noopener" class="fw-semibold">{{ live_app_url }}</a>.
+    </div>
+  </div>
+  {% endif %}
   {% for cat, msg in get_flashed_messages(with_categories=true) %}
     <div class="alert alert-{{ cat }} alert-dismissible fade show">{{ msg }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
   {% endfor %}

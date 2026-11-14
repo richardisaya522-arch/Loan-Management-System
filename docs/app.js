@@ -23,15 +23,22 @@
 
   const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
   const METHODS = CFG.METHODS || ["Cash"];
+  const APP_VERSION = "2026.11.14";
+  const PROJECT_REF = String(CFG.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0];
+  const LIVE_URL = "https://richardisaya522-arch.github.io/Loan-Management-System/";
+  const RESET_REDIRECT = location.hostname.endsWith("github.io")
+    ? LIVE_URL : location.origin + location.pathname;
+  // Supabase huweka type=recovery kwenye URL baada ya kubonyeza kiungo cha barua pepe.
+  const RECOVERY_LINK = /(?:^|[#&?])type=recovery(?:&|$)/.test(location.href);
 
   // ---------- Helpers ----------
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const tzs = (v) => "TZS " + Number(v || 0).toLocaleString("en-US");
   const digits = (p) => String(p || "").replace(/\D/g, "");
-  const phoneToEmail = (phone) => digits(phone) + "@zaburiya23.local";
   const validPhone = (p) => /^(0[67]\d{8}|255[67]\d{8})$/.test(digits(p));
   const normPhone = (p) => { let d = digits(p); if (d.startsWith("255")) d = "0" + d.slice(3); return d; };
+  const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e || "").trim());
 
   // Sera ya password (ulingane na app ya Flask). Uthibitisho halisi uko Supabase Auth.
   const COMMON_PASSWORDS = new Set([
@@ -92,7 +99,7 @@
     approved: "text-bg-primary", rejected: "text-bg-danger"
   }[s] || "text-bg-secondary");
 
-  let state = { user: null, profile: null, customer: null, route: "" };
+  let state = { user: null, profile: null, customer: null, route: "", recovery: RECOVERY_LINK };
   const today = () => new Date(new Date().toDateString());
 
   // ---------- Toast/alert ----------
@@ -105,6 +112,49 @@
     setTimeout(() => el.remove(), 6000);
   }
 
+  function errorView(v, error) {
+    v.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i>
+      <b>Hitilafu:</b> ${esc(error && error.message ? error.message : error)}</div>`;
+  }
+
+  async function fnError(error, fallback) {
+    try {
+      const ctx = error && error.context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.json();
+        if (body && body.error) return body.error;
+      }
+      if (ctx && typeof ctx.text === "function") {
+        const text = await ctx.text();
+        if (text) return text.slice(0, 300);
+      }
+    } catch (_) { /* ignore */ }
+    return (error && error.message) || fallback;
+  }
+
+  function downloadFile(name, content, type) {
+    const blob = new Blob([content], { type: type + ";charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function downloadCSV(name, rows) {
+    const data = rows && rows.length ? rows : [{}];
+    const cols = Array.from(new Set(data.flatMap((r) => Object.keys(r))));
+    const cell = (v) => {
+      let s = v == null ? "" : (typeof v === "object" ? JSON.stringify(v) : String(v));
+      if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const lines = [cols.join(",")].concat(data.map((r) => cols.map((c) => cell(r[c])).join(",")));
+    downloadFile(name, "\ufeff" + lines.join("\r\n"), "text/csv");
+  }
+
   // ---------- Boot ----------
   async function boot() {
     const { data: { session } } = await sb.auth.getSession();
@@ -112,17 +162,37 @@
       state.user = session.user;
       await loadProfile();
     }
-    sb.auth.onAuthStateChange((_e, s) => {
-      if (!s) { state = { user: null, profile: null, customer: null, route: "" }; render(); }
+    sb.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY") {
+        state.recovery = true;
+        if (s) {
+          state.user = s.user;
+          loadProfile().then(() => {
+            if (location.hash !== "#/reset-password") location.hash = "#/reset-password";
+            render();
+          });
+        }
+        return;
+      }
+      if (!s && !state.recovery) {
+        state = { user: null, profile: null, customer: null, route: "", recovery: false };
+        render();
+      }
     });
     window.addEventListener("hashchange", route);
+    if (state.recovery && state.user) location.hash = "#/reset-password";
     render();
     route();
   }
 
   async function loadProfile() {
-    const { data: prof } = await sb.from("profiles").select("*").eq("id", state.user.id).maybeSingle();
-    state.profile = prof;
+    let { data: prof, error } = await sb.from("profiles").select("*").eq("id", state.user.id).maybeSingle();
+    if (error) {
+      await new Promise((r) => setTimeout(r, 600));
+      ({ data: prof, error } = await sb.from("profiles").select("*").eq("id", state.user.id).maybeSingle());
+    }
+    state.profile = prof || null;
+    state.profileError = error || null;
     if (prof && prof.role === "customer") {
       const { data: cust } = await sb.from("customers").select("*").eq("user_id", state.user.id).maybeSingle();
       state.customer = cust;
@@ -153,6 +223,11 @@
             </div>
             <h3 class="fw-bold mb-2">Karibu</h3>
             <p class="auth-sub mb-0">Omba mkopo kwa urahisi, fuatilia malipo, na pata risiti zako.</p>
+            <div class="alert alert-light text-dark small mt-4 mb-0">
+              <i class="bi bi-hdd-network"></i> Hii ndiyo <b>mfumo mmoja wa kati</b>.
+              Taarifa zote zinahifadhiwa Supabase, hivyo unaona data ile ile kwenye simu,
+              kompyuta au kifaa chochote.
+            </div>
           </div>
           <p class="auth-sub small mb-0">&copy; ${new Date().getFullYear()} ${esc(CFG.BRAND)}</p>
         </div>
@@ -162,6 +237,14 @@
             <li class="nav-item"><button class="nav-link" data-tab="register">Jisajili</button></li>
           </ul>
           <div id="authPane"></div>
+          <div class="border-top mt-4 pt-3 d-flex flex-wrap gap-2 justify-content-between text-muted small">
+            <span><i class="bi bi-database-check"></i> Data: Supabase · <code>${esc(PROJECT_REF)}</code></span>
+            <span>Toleo ${esc(APP_VERSION)}</span>
+          </div>
+          <p class="text-muted small mb-0 mt-2">
+            Tumia anwani hii pekee: <a href="${LIVE_URL}">${esc(LIVE_URL)}</a>.
+            Toleo la Flask ni la ndani (localhost) tu na halishiriki data hii.
+          </p>
         </div>
       </div>
     </div>`;
@@ -171,25 +254,47 @@
         b.classList.add("active");
         b.dataset.tab === "login" ? authLoginForm() : authRegisterForm();
       }));
-    authLoginForm();
+    if (state.recovery) {
+      state.recovery = false;
+      setTimeout(() => toast("Kiungo cha kubadilisha password hakifai au kimeisha muda. Omba kiungo kipya.", "warning"), 100);
+      authForgotForm();
+    } else {
+      authLoginForm();
+    }
   }
 
   function authLoginForm() {
     $app.querySelector("#authPane").innerHTML = `
       <form id="loginForm">
-        <div class="mb-3"><label class="form-label">Namba ya simu</label>
-          <input class="form-control form-control-lg" name="phone" placeholder="0712345678" required></div>
-        <div class="mb-3"><label class="form-label">Password</label>
-          <input class="form-control form-control-lg" type="password" name="password" required></div>
+        <div class="mb-3"><label class="form-label">Barua pepe au namba ya simu</label>
+          <input class="form-control form-control-lg" name="identifier" autocomplete="username"
+            placeholder="jina@barua.com au 0712345678" required></div>
+        <div class="mb-2"><label class="form-label">Password</label>
+          <input class="form-control form-control-lg" type="password" name="password"
+            autocomplete="current-password" required></div>
+        <div class="text-end mb-3">
+          <a href="#" class="small fw-semibold" id="forgotLink">Umesahau password?</a>
+        </div>
         <button class="btn btn-primary btn-lg w-100">Ingia</button>
       </form>`;
+    document.getElementById("forgotLink").addEventListener("click", (ev) => {
+      ev.preventDefault();
+      authForgotForm();
+    });
     $app.querySelector("#loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = e.target;
-      const phone = normPhone(f.phone.value);
-      if (!validPhone(phone)) return toast("Namba ya simu si sahihi.", "danger");
-      const { error } = await sb.auth.signInWithPassword({ email: phoneToEmail(phone), password: f.password.value });
-      if (error) return toast("Jina/simu au password si sahihi.", "danger");
+      const identifier = f.identifier.value.trim();
+      if (!identifier) return toast("Weka barua pepe au namba ya simu.", "danger");
+      const { data, error } = await sb.functions.invoke("login", {
+        body: { identifier, password: f.password.value }
+      });
+      if (error) return toast(await fnError(error, "Imeshindikana kuingia."), "danger");
+      if (!data || data.error) return toast((data && data.error) || "Taarifa si sahihi.", "danger");
+      const { error: se } = await sb.auth.setSession({
+        access_token: data.access_token, refresh_token: data.refresh_token
+      });
+      if (se) return toast(se.message, "danger");
       state.user = (await sb.auth.getUser()).data.user;
       await loadProfile();
       location.hash = "#/";
@@ -197,31 +302,98 @@
     });
   }
 
+  function authForgotForm() {
+    $app.querySelector("#authPane").innerHTML = `
+      <h4 class="fw-bold mb-2">Umesahau password?</h4>
+      <p class="text-muted small">Weka barua pepe uliyotumia kujisajili. Tutakutumia kiungo cha
+        kubadilisha password kwenye barua pepe hiyo.</p>
+      <form id="forgotForm">
+        <div class="mb-3"><label class="form-label">Barua pepe</label>
+          <input class="form-control form-control-lg" type="email" name="email"
+            autocomplete="email" placeholder="jina@barua.com" required></div>
+        <button class="btn btn-primary btn-lg w-100">Tuma kiungo</button>
+      </form>
+      <p class="text-center mt-3 mb-0"><a href="#" id="backLogin" class="fw-semibold">Rudi kuingia</a></p>`;
+    document.getElementById("backLogin").addEventListener("click", (ev) => {
+      ev.preventDefault();
+      authLoginForm();
+    });
+    $app.querySelector("#forgotForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const email = f.email.value.trim().toLowerCase();
+      if (!validEmail(email)) return toast("Barua pepe si sahihi.", "danger");
+      const btn = f.querySelector("button");
+      btn.disabled = true;
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: RESET_REDIRECT });
+      btn.disabled = false;
+      if (error) return toast(error.message, "danger");
+      $app.querySelector("#authPane").innerHTML = `
+        <div class="alert alert-success mb-3">
+          <i class="bi bi-envelope-check"></i> Kama barua pepe hii ipo kwenye mfumo,
+          tumetuma kiungo cha kubadilisha password. Angalia inbox/spam kisha fungua kiungo.
+        </div>
+        <p class="text-center mb-0"><a href="#" id="backLogin2" class="fw-semibold">Rudi kuingia</a></p>`;
+      document.getElementById("backLogin2").addEventListener("click", (ev) => {
+        ev.preventDefault();
+        authLoginForm();
+      });
+    });
+  }
+
   function authRegisterForm() {
     $app.querySelector("#authPane").innerHTML = `
       <form id="regForm">
-        <div class="mb-3"><label class="form-label">Namba ya simu</label>
-          <input class="form-control form-control-lg" name="phone" placeholder="0712345678" required></div>
-        <div class="mb-3"><label class="form-label">Password (angalau 8, herufi + nambari/alama)</label>
-          <input class="form-control form-control-lg" type="password" name="password" required></div>
-        <div class="mb-3"><label class="form-label">Rudia password</label>
-          <input class="form-control form-control-lg" type="password" name="password2" required></div>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Jina kamili</label>
+            <input class="form-control" name="name" autocomplete="name" required></div>
+          <div class="col-md-6"><label class="form-label">Namba ya simu</label>
+            <input class="form-control" name="phone" autocomplete="tel"
+              placeholder="0712345678" required></div>
+          <div class="col-12"><label class="form-label">Barua pepe</label>
+            <input class="form-control" type="email" name="email" autocomplete="email"
+              placeholder="jina@barua.com" required></div>
+          <div class="col-md-6"><label class="form-label">Password</label>
+            <input class="form-control" type="password" name="password"
+              autocomplete="new-password" required></div>
+          <div class="col-md-6"><label class="form-label">Rudia password</label>
+            <input class="form-control" type="password" name="password2"
+              autocomplete="new-password" required></div>
+        </div>
+        <p class="form-text">Angalau herufi 8, changanya herufi na nambari/alama.
+          Tutatumia barua pepe hii kwa reset ya password.</p>
         <button class="btn btn-success btn-lg w-100">Jisajili</button>
       </form>`;
     $app.querySelector("#regForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = e.target;
+      const name = f.name.value.trim();
       const phone = normPhone(f.phone.value);
+      const email = f.email.value.trim().toLowerCase();
+      if (name.length < 2) return toast("Weka jina kamili.", "danger");
       if (!validPhone(phone)) return toast("Namba si sahihi. Mfano: 0712345678", "danger");
+      if (!validEmail(email)) return toast("Barua pepe si sahihi.", "danger");
       const pwErr = passwordProblem(f.password.value, phone);
       if (pwErr) return toast(pwErr, "danger");
       if (f.password.value !== f.password2.value) return toast("Password mbili hazifanani.", "danger");
+      const { data: taken } = await sb.rpc("phone_registered", { p_phone: phone });
+      if (taken) return toast("Namba hii tayari imesajiliwa. Ingia kwa simu au barua pepe.", "danger");
       const { data, error } = await sb.auth.signUp({
-        email: phoneToEmail(phone), password: f.password.value,
-        options: { data: { username: phone } }
+        email, password: f.password.value,
+        options: { data: { username: phone, phone, name, email } }
       });
       if (error) return toast(error.message, "danger");
-      if (!data.session) return toast("Akaunti imeundwa. Wezesha 'Confirm email' OFF kwenye Supabase, au ingia.", "warning");
+      if (!data.session) {
+        $app.querySelector("#authPane").innerHTML = `
+          <div class="alert alert-success">Akaunti imeundwa. Angalia barua pepe yako
+            kuthibitisha, kisha ingia.</div>
+          <p class="text-center mb-0"><a href="#" id="afterRegLogin" class="fw-semibold">Ingia</a></p>`;
+        document.getElementById("afterRegLogin").addEventListener("click", (ev) => {
+          ev.preventDefault();
+          authLoginForm();
+        });
+        return;
+      }
       state.user = data.user;
       await loadProfile();
       location.hash = "#/";
@@ -238,12 +410,15 @@
       ["#/customers", "Wateja", "people"],
       ["#/loans", "Mikopo", "cash-stack"],
       ["#/payments", "Malipo", "receipt"],
-      ["#/audit", "Kumbukumbu", "journal-text"]
+      ["#/backups", "Nakala", "hdd"],
+      ["#/audit", "Kumbukumbu", "journal-text"],
+      ["#/password", "Badilisha password", "key"]
     ];
     return [
       ["#/", "Akaunti yangu", "house"],
       ["#/apply", "Omba mkopo", "plus-circle"],
-      ["#/profile", "Profile", "person-gear"]
+      ["#/profile", "Profile", "person-gear"],
+      ["#/password", "Badilisha password", "key"]
     ];
   }
 
@@ -261,27 +436,52 @@
         <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
         <div class="collapse navbar-collapse" id="nav">
           <ul class="navbar-nav me-auto">
-            ${items.map(([h, t, ic]) => `<li class="nav-item"><a class="nav-link ${cur === h ? "active fw-semibold" : ""}" href="${h}"><i class="bi bi-${ic}"></i> ${t}</a></li>`).join("")}
+            ${items.map(([h, t, ic]) => `<li class="nav-item"><a class="nav-link ${cur === h ? "active fw-semibold" : ""}" href="${h}"${h === "#/applications" ? ' id="navApplications"' : ""}><i class="bi bi-${ic}"></i> ${t}</a></li>`).join("")}
           </ul>
           <button class="btn btn-outline-light btn-sm" id="logoutBtn">
             <i class="bi bi-box-arrow-right"></i> Toka (${esc(state.profile ? state.profile.username : "")})</button>
         </div>
       </div>
     </nav>
-    <main class="container pb-5" id="view"></main>`;
+    <main class="container pb-5" id="view"></main>
+    <footer class="container pb-4 pt-2 d-flex flex-wrap gap-2 justify-content-between text-muted small border-top">
+      <span><i class="bi bi-database-check"></i> Data moja: Supabase · <code>${esc(PROJECT_REF)}</code></span>
+      <span>Toleo ${esc(APP_VERSION)} · <a href="${LIVE_URL}">Mfumo rasmi</a></span>
+    </footer>`;
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await sb.auth.signOut();
     });
     renderView();
+    refreshPendingBadge();
+  }
+
+  async function refreshPendingBadge() {
+    if (!state.profile || state.profile.role !== "admin") return;
+    const { count, error } = await sb.from("loans")
+      .select("id", { count: "exact", head: true }).eq("decision", "pending");
+    if (error || !count) return;
+    const el = document.getElementById("navApplications");
+    if (el && !el.querySelector(".badge")) {
+      el.insertAdjacentHTML("beforeend",
+        ` <span class="badge text-bg-warning">${count}</span>`);
+    }
   }
 
   function renderView() {
     const v = document.getElementById("view");
     const isAdmin = state.profile && state.profile.role === "admin";
     const h = location.hash || "#/";
+    if (state.recovery || h === "#/reset-password") return resetPasswordView(v);
+    if (state.profileError) return errorView(v, state.profileError);
+    if (!state.profile) {
+      v.innerHTML = `<div class="alert alert-warning"><i class="bi bi-person-exclamation"></i>
+        Profile yako haijapatikana. Ingia tena au wasiliana na ofisi.</div>`;
+      return;
+    }
     if (h === "#/" || h === "") return isAdmin ? adminDashboard(v) : customerHome(v);
     if (h === "#/apply") return applyView(v);
     if (h === "#/profile") return profileView(v);
+    if (h === "#/password") return passwordView(v);
     if (h.startsWith("#/loan/")) return loanDetailView(v, +h.split("/")[2]);
     if (isAdmin) {
       if (h === "#/applications") return applicationsView(v);
@@ -289,6 +489,7 @@
       if (h.startsWith("#/customer/")) return customerDetailView(v, +h.split("/")[2]);
       if (h === "#/loans") return loansView(v);
       if (h === "#/payments") return paymentsView(v);
+      if (h === "#/backups") return backupsView(v);
       if (h === "#/audit") return auditView(v);
     }
     v.innerHTML = `<div class="alert alert-warning">Ukurasa haupatikani.</div>`;
@@ -297,7 +498,8 @@
   // ================= CUSTOMER =================
   async function customerHome(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data: loans } = await sb.from("loans").select("*").order("id", { ascending: false });
+    const { data: loans, error } = await sb.from("loans").select("*").order("id", { ascending: false });
+    if (error) return errorView(v, error);
     const c = state.customer;
     const done = c && c.profile_done;
     let cards = "";
@@ -432,14 +634,98 @@
     });
   }
 
+  function resetPasswordView(v) {
+    if (!state.user) {
+      v.innerHTML = `<div class="alert alert-warning">
+        <i class="bi bi-shield-exclamation"></i> Kiungo cha kubadilisha password hakifai au kimeisha muda.
+        <a href="#" id="resetToForgot" class="alert-link">Omba kiungo kipya</a>.</div>`;
+      const link = document.getElementById("resetToForgot");
+      if (link) link.addEventListener("click", (ev) => { ev.preventDefault(); state.recovery = false; renderAuth(); });
+      return;
+    }
+    v.innerHTML = `
+      <h3 class="mb-3">Weka password mpya</h3>
+      <div class="card p-4" style="max-width:560px">
+        <p class="text-muted small">Uthibitisho wa barua pepe umefanikiwa. Weka password mpya
+          (angalau herufi 8, changanya herufi na nambari au alama).</p>
+        <form id="resetForm">
+          <div class="mb-3"><label class="form-label">Password mpya</label>
+            <input class="form-control" type="password" name="new"
+              autocomplete="new-password" required></div>
+          <div class="mb-3"><label class="form-label">Rudia password mpya</label>
+            <input class="form-control" type="password" name="new2"
+              autocomplete="new-password" required></div>
+          <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Hifadhi password</button>
+        </form>
+      </div>`;
+    document.getElementById("resetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const nw = f.new.value, nw2 = f.new2.value;
+      const prob = passwordProblem(nw, state.profile ? state.profile.username : "");
+      if (prob) return toast(prob, "danger");
+      if (nw !== nw2) return toast("Password mbili hazifanani.", "danger");
+      const { error } = await sb.auth.updateUser({ password: nw });
+      if (error) return toast(error.message, "danger");
+      state.recovery = false;
+      toast("Password imebadilishwa. Karibu!", "success");
+      location.hash = "#/";
+      render();
+    });
+  }
+
+  function passwordView(v) {
+    v.innerHTML = `
+      <h3 class="mb-3">Badilisha password</h3>
+      <div class="card p-4" style="max-width:560px">
+        <p class="text-muted small">Weka password yako ya sasa, kisha password mpya
+          (angalau herufi 8, changanya herufi na nambari au alama).</p>
+        <form id="passwordForm">
+          <div class="mb-3"><label class="form-label">Password ya sasa</label>
+            <input class="form-control" type="password" name="current"
+              autocomplete="current-password" required></div>
+          <div class="mb-3"><label class="form-label">Password mpya</label>
+            <input class="form-control" type="password" name="new"
+              autocomplete="new-password" required></div>
+          <div class="mb-3"><label class="form-label">Rudia password mpya</label>
+            <input class="form-control" type="password" name="new2"
+              autocomplete="new-password" required></div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Hifadhi password</button>
+            <a class="btn btn-outline-secondary" href="#/">Ghairi</a>
+          </div>
+        </form>
+      </div>`;
+    document.getElementById("passwordForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const cur = f.current.value, nw = f.new.value, nw2 = f.new2.value;
+      const prob = passwordProblem(nw, state.profile ? state.profile.username : "");
+      if (prob) return toast(prob, "danger");
+      if (nw !== nw2) return toast("Password mbili hazifanani.", "danger");
+      if (nw === cur) return toast("Password mpya isiwe sawa na ya sasa.", "danger");
+      const email = state.user && state.user.email;
+      if (!email) return toast("Kikao kimeisha. Ingia tena.", "danger");
+      const { error: authErr } = await sb.auth.signInWithPassword({ email, password: cur });
+      if (authErr) return toast("Password ya sasa si sahihi.", "danger");
+      const { error } = await sb.auth.updateUser({ password: nw });
+      if (error) return toast(error.message, "danger");
+      f.reset();
+      toast("Password imebadilishwa. Tumia password mpya wakati ujao.", "success");
+      location.hash = "#/";
+    });
+  }
+
   // ================= LOAN DETAIL (shared) =================
   async function loanDetailView(v, lid) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
     const isAdmin = state.profile.role === "admin";
-    const { data: loan } = await sb.from("loans").select("*").eq("id", lid).maybeSingle();
+    const { data: loan, error: loanErr } = await sb.from("loans").select("*").eq("id", lid).maybeSingle();
+    if (loanErr) return errorView(v, loanErr);
     if (!loan) { v.innerHTML = `<div class="alert alert-warning">Mkopo haupatikani.</div>`; return; }
     const pays = await paymentsFor(lid);
-    const { data: agr } = await sb.from("agreements").select("*").eq("loan_id", lid).maybeSingle();
+    const { data: agr, error: agrErr } = await sb.from("agreements").select("*").eq("loan_id", lid).maybeSingle();
+    if (agrErr) return errorView(v, agrErr);
     const b = buildLoan(loan, pays, today());
     const contractDone = !!(agr && agr.accepted && (agr.lender_sign || "").trim());
 
@@ -569,6 +855,8 @@
       sb.from("customers").select("id", { count: "exact", head: true }),
       sb.from("loans").select("id", { count: "exact", head: true }).eq("decision", "pending")
     ]);
+    const firstErr = [loans, payments, customers, pending].find((r) => r.error);
+    if (firstErr) return errorView(v, firstErr.error);
     const allLoans = loans.data || [];
     const allPays = payments.data || [];
     const totalPrincipal = allLoans.filter((l) => l.decision === "approved").reduce((s, l) => s + Number(l.principal), 0);
@@ -597,22 +885,125 @@
       </div></div></a></div>`;
   }
 
+  async function backupsView(v) {
+    v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
+    const tables = [
+      ["customers", "Wateja"],
+      ["profiles", "Profiles"],
+      ["loans", "Mikopo"],
+      ["payments", "Malipo"],
+      ["agreements", "Mikataba"],
+      ["audit", "Kumbukumbu"]
+    ];
+    const results = await Promise.all(tables.map(async ([t, label]) => {
+      const { data, error, count } = await sb.from(t).select("*", { count: "exact" });
+      return { t, label, rows: data || [], error, count: count == null ? (data || []).length : count };
+    }));
+    const ok = results.filter((r) => !r.error);
+    const ref = String(CFG.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0];
+    const day = new Date().toISOString().slice(0, 10);
+
+    v.innerHTML = `
+      <h3 class="mb-3">Nakala rudufu</h3>
+      <div class="alert alert-info small">
+        <i class="bi bi-cloud-check"></i> Supabase hifadhi nakala za database kila siku.
+        <a href="https://supabase.com/dashboard/project/${esc(ref)}/database/backups"
+          target="_blank" rel="noopener">Fungua nakala za Supabase</a>.
+        Hapa unaweza pia kupakua nakala ya data yote kwa JSON au CSV.
+      </div>
+      ${ok.length < results.length ? `<div class="alert alert-warning small">
+        Baadhi ya majedwali hayakupatikana. Angalia hitilafu kwenye orodha hapa chini.</div>` : ""}
+      <div class="card p-3 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div><h6 class="mb-0">Nakala ya data yote (JSON)</h6>
+            <div class="text-muted small">Inajumuisha majedwali yote yaliyopatikana.</div></div>
+          <button class="btn btn-primary" id="downloadJson" ${ok.length ? "" : "disabled"}>
+            <i class="bi bi-download"></i> Pakua JSON</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Jedwali</th><th>Rekodi</th><th>Hali</th><th class="text-end">Pakua</th></tr></thead>
+        <tbody>${results.map((r) => `<tr>
+          <td>${esc(r.label)} <code class="small">${esc(r.t)}</code></td>
+          <td>${r.count}</td>
+          <td>${r.error ? `<span class="text-danger small">${esc(r.error.message)}</span>` :
+            '<span class="badge text-bg-success">Tayari</span>'}</td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-primary"
+            data-csv="${esc(r.t)}" ${r.error || !r.rows.length ? "disabled" : ""}>CSV</button></td>
+        </tr>`).join("")}</tbody>
+      </table></div></div>`;
+
+    const jsonBtn = document.getElementById("downloadJson");
+    if (jsonBtn) jsonBtn.addEventListener("click", () => {
+      const payload = { brand: CFG.BRAND, project: ref,
+        generated_at: new Date().toISOString(), tables: {} };
+      ok.forEach((r) => { payload.tables[r.t] = r.rows; });
+      downloadFile(`nakala-${ref}-${day}.json`,
+        JSON.stringify(payload, null, 2), "application/json");
+    });
+    v.querySelectorAll("[data-csv]").forEach((b) => b.addEventListener("click", () => {
+      const r = ok.find((x) => x.t === b.dataset.csv);
+      if (r) downloadCSV(`${r.t}-${day}.csv`, r.rows);
+    }));
+  }
+
   async function applicationsView(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data } = await sb.from("loans").select("*, customers(name, phone)").eq("decision", "pending").order("id", { ascending: false });
-    const rows = (data || []).map((l) => `<div class="card p-3 mb-2">
-      <div class="d-flex flex-wrap justify-content-between">
-        <div><b>${esc(l.customers ? l.customers.name : "")}</b> <span class="text-muted">(${esc(l.customers ? l.customers.phone : "")})</span>
-          <div class="small">Mkopo #${l.id} — ${tzs(l.principal)} / miezi ${l.months}</div>
-          <div class="small text-muted">${esc(l.purpose || "")}</div></div>
-        <div class="d-flex gap-2 align-items-center">
-          <button class="btn btn-sm btn-success" data-approve="${l.id}">Idhinisha</button>
-          <button class="btn btn-sm btn-outline-danger" data-reject="${l.id}">Kataa</button>
-        </div></div></div>`).join("") ||
-      `<div class="card p-4 text-center text-muted">Hakuna maombi yanayosubiri.</div>`;
-    v.innerHTML = `<h3 class="mb-3">Maombi yanayosubiri</h3>${rows}`;
+    const { data, error } = await sb.from("loans")
+      .select("*, customers(name, phone)")
+      .order("id", { ascending: false });
+    if (error) return errorView(v, error);
+    const all = data || [];
+    const filters = [
+      ["all", "Zote", all.length],
+      ["pending", "Zinasubiri", all.filter((l) => l.decision === "pending").length],
+      ["approved", "Zimeidhinishwa", all.filter((l) => l.decision === "approved").length],
+      ["rejected", "Zimekataliwa", all.filter((l) => l.decision === "rejected").length]
+    ];
+    const rows = all.length ? all.map((l) => {
+      const name = l.customers ? l.customers.name : "";
+      const phone = l.customers ? l.customers.phone : "";
+      return `<div class="card p-3 mb-2">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+          <div>
+            <b>${esc(name || "Mteja")}</b>
+            <span class="text-muted">(${esc(phone || "-")})</span>
+            <span class="badge ${badge(l.decision)}">${statusTxt(l.decision)}</span>
+            <div class="small">Mkopo #${l.id} &middot; ${tzs(l.principal)} / miezi ${l.months}
+              ${l.created_at ? " &middot; " + fmtDate(l.created_at) : ""}</div>
+            <div class="small text-muted">${esc(l.purpose || "")}</div>
+            ${l.review_note ? `<div class="small text-danger">Sababu: ${esc(l.review_note)}</div>` : ""}
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            ${l.decision === "pending" ? `
+              <button class="btn btn-sm btn-success" data-approve="${l.id}">Idhinisha</button>
+              <button class="btn btn-sm btn-outline-danger" data-reject="${l.id}">Kataa</button>` : ""}
+            <a class="btn btn-sm btn-outline-primary" href="#/loan/${l.id}">Fungua</a>
+          </div>
+        </div></div>`;
+    }).join("") :
+      `<div class="card p-4 text-center text-muted">Hakuna maombi bado.</div>`;
 
-    v.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => approveDialog(v, +b.dataset.approve)));
+    v.innerHTML = `<h3 class="mb-3">Maombi ya mikopo</h3>
+      <div class="btn-group btn-group-sm mb-3 flex-wrap" role="group" id="applicationFilters">
+        ${filters.map(([f, label, n]) => `<button class="btn btn-outline-primary"
+          data-filter="${f}">${label} <span class="badge text-bg-light">${n}</span></button>`).join("")}
+      </div>
+      <div id="applicationList">${rows}</div>`;
+
+    const setFilter = (f) => {
+      v.querySelectorAll("#applicationFilters [data-filter]").forEach((b) =>
+        b.classList.toggle("active", b.dataset.filter === f));
+      v.querySelectorAll("#applicationList > .card").forEach((card, i) => {
+        card.style.display = (f === "all" || all[i].decision === f) ? "" : "none";
+      });
+    };
+    v.querySelectorAll("#applicationFilters [data-filter]").forEach((b) =>
+      b.addEventListener("click", () => setFilter(b.dataset.filter)));
+    setFilter("all");
+
+    v.querySelectorAll("[data-approve]").forEach((b) =>
+      b.addEventListener("click", () => approveDialog(v, +b.dataset.approve)));
     v.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", async () => {
       const note = (prompt("Sababu ya kukataa (hiari):") || "").slice(0, 300);
       const { error } = await sb.rpc("decide_loan", {
@@ -620,7 +1011,8 @@
         p_rate: null, p_months: null, p_start: null, p_note: note
       });
       if (error) return toast(error.message, "danger");
-      toast("Ombi limekataliwa.", "warning"); applicationsView(v);
+      toast("Ombi limekataliwa.", "warning");
+      applicationsView(v);
     }));
   }
 
@@ -646,7 +1038,8 @@
 
   async function customersView(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data } = await sb.from("customers").select("*").order("id", { ascending: false });
+    const { data, error } = await sb.from("customers").select("*").order("id", { ascending: false });
+    if (error) return errorView(v, error);
     v.innerHTML = `<h3 class="mb-3">Wateja</h3>
       <div class="card"><div class="table-responsive"><table class="table align-middle mb-0">
         <thead><tr><th>#</th><th>Jina</th><th>Simu</th><th>Hali</th><th></th></tr></thead>
@@ -660,11 +1053,17 @@
 
   async function customerDetailView(v, cid) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data: c } = await sb.from("customers").select("*").eq("id", cid).maybeSingle();
+    const { data: c, error: cErr } = await sb.from("customers").select("*").eq("id", cid).maybeSingle();
+    if (cErr) return errorView(v, cErr);
     if (!c) { v.innerHTML = `<div class="alert alert-warning">Mteja hapatikani.</div>`; return; }
-    const { data: loans } = await sb.from("loans").select("*").eq("customer_id", cid).order("id", { ascending: false });
+    const { data: loans, error: lErr } = await sb.from("loans").select("*").eq("customer_id", cid).order("id", { ascending: false });
+    if (lErr) return errorView(v, lErr);
     v.innerHTML = `<a href="#/customers" class="text-decoration-none">&larr; Wateja</a>
-      <h3 class="mt-3">${esc(c.name || c.phone)}</h3>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-3">
+        <h3 class="mb-0">${esc(c.name || c.phone)}</h3>
+        ${c.user_id ? `<button class="btn btn-outline-warning btn-sm" id="resetCustomerPassword">
+          <i class="bi bi-key"></i> Weka upya password</button>` : ""}
+      </div>
       <div class="card p-3 mb-3"><div class="row g-3 small">
         ${kv("Simu", c.phone)}${kv("Barua pepe", c.email)}${kv("Anwani", c.address)}${kv("Kazi", c.occupation)}
         ${kv("Mdhamini", c.guarantor_name)}${kv("Simu mdhamini", c.guarantor_phone)}
@@ -677,6 +1076,22 @@
           <td><a class="btn btn-sm btn-outline-primary" href="#/loan/${l.id}">Fungua</a></td></tr>`).join("") ||
           `<tr><td colspan="5" class="text-center text-muted">Hakuna mikopo.</td></tr>`}</tbody>
       </table></div></div>`;
+
+    const resetBtn = document.getElementById("resetCustomerPassword");
+    if (resetBtn) resetBtn.addEventListener("click", async () => {
+      if (!confirm(`Weka upya password ya ${c.name || c.phone}?`)) return;
+      resetBtn.disabled = true;
+      const { data, error } = await sb.functions.invoke("admin-reset-password", {
+        body: { customer_id: c.id }
+      });
+      resetBtn.disabled = false;
+      if (error) {
+        const msg = error.context?.error || error.message || "Imeshindikana.";
+        return toast(msg, "danger");
+      }
+      if (data && data.error) return toast(data.error, "danger");
+      alert(`Password ya muda kwa ${data.name || c.phone}: ${data.password}\n\nMteja abadilishe mara ya kwanza.`);
+    });
   }
 
   function kv(k, val) {
@@ -685,7 +1100,8 @@
 
   async function loansView(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data } = await sb.from("loans").select("*, customers(name)").eq("decision", "approved").order("id", { ascending: false });
+    const { data, error } = await sb.from("loans").select("*, customers(name)").eq("decision", "approved").order("id", { ascending: false });
+    if (error) return errorView(v, error);
     const rows = [];
     for (const l of data || []) {
       const b = buildLoan(l, await paymentsFor(l.id), today());
@@ -694,7 +1110,7 @@
         <td><span class="badge ${badge(b.status)}">${statusTxt(b.status)}</span></td>
         <td><a class="btn btn-sm btn-outline-primary" href="#/loan/${l.id}">Fungua</a></td></tr>`);
     }
-    v.innerHTML = `<h3 class="mb-3">Mikopo</h3><div class="card"><div class="table-responsive">
+    v.innerHTML = `<h3 class="mb-3">Mikopo iliyoidhinishwa</h3><div class="card"><div class="table-responsive">
       <table class="table align-middle mb-0"><thead><tr><th>#</th><th>Mteja</th><th>Kiasi</th>
       <th>Jumla</th><th>Lililobaki</th><th>Hali</th><th></th></tr></thead>
       <tbody>${rows.join("") || `<tr><td colspan="7" class="text-center text-muted">Hakuna mikopo.</td></tr>`}</tbody>
@@ -703,7 +1119,8 @@
 
   async function paymentsView(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data } = await sb.from("payments").select("*, loans(customers(name))").order("id", { ascending: false }).limit(200);
+    const { data, error } = await sb.from("payments").select("*, loans(customers(name))").order("id", { ascending: false }).limit(200);
+    if (error) return errorView(v, error);
     v.innerHTML = `<h3 class="mb-3">Malipo</h3><div class="card"><div class="table-responsive">
       <table class="table align-middle mb-0"><thead><tr><th>#</th><th>Tarehe</th><th>Mteja</th>
       <th>Mkopo</th><th>Kiasi</th><th>Njia</th></tr></thead>
@@ -716,7 +1133,8 @@
 
   async function auditView(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data } = await sb.from("audit").select("*").order("id", { ascending: false }).limit(300);
+    const { data, error } = await sb.from("audit").select("*").order("id", { ascending: false }).limit(300);
+    if (error) return errorView(v, error);
     v.innerHTML = `<h3 class="mb-3">Kumbukumbu</h3><div class="card"><div class="table-responsive">
       <table class="table table-sm align-middle mb-0"><thead><tr><th>#</th><th>Muda</th><th>Mtumiaji</th>
       <th>Kitendo</th><th>Lengo</th><th>Maelezo</th></tr></thead>

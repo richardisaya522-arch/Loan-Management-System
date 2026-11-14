@@ -2,14 +2,18 @@
 
 Mfumo wa kukopesha.
 
-Kuna matoleo mawili:
+Kuna matoleo mawili — **si data moja**:
 
-1. **Flask + SQLite** (`app.py`) — kwa kuendesha kwenye kompyuta yako (`python app.py`).
-2. **App tuli + Supabase** (`docs/`) — kwa ku-host kwenye **GitHub Pages** (hauna server; data ipo Supabase).
+1. **App tuli + Supabase** (`docs/`) — **mfumo rasmi** unaotumiwa na wateja wote.
+   Uko live kwenye **GitHub Pages**; data inahifadhiwa Supabase na ni ile ile kwenye
+   kifaa chochote.
+2. **Flask + SQLite** (`app.py`) — toleo la ndani (localhost) kwa majaribio pekee.
+   Data yake iko kwenye `loans.db` ya kompyuta hiyo; **haishiriki data na mfumo rasmi**.
 
-> **Hali ya sasa (2026-11-01):** schema na migrations zimepandishwa, admin `0700000000`
-> ameundwa, na app iko live kwenye
-> https://richardisaya522-arch.github.io/Loan-Management-System/
+> **Hali ya sasa (2026-11-14):** migrations zimepandishwa, Edge Functions `login` na
+> `admin-reset-password` zime-deploy, na mfumo rasmi uko
+> https://richardisaya522-arch.github.io/Loan-Management-System/.
+> Admin: `officiallytony520@gmail.com` (namba `0700000000`).
 
 ---
 
@@ -51,19 +55,34 @@ Fungua http://127.0.0.1:5000
   **Redirect URLs** kuwa `https://richardisaya522-arch.github.io/Loan-Management-System/`.
 
 ### 4. Unda admin
-- Fungua app, **Jisajili** kwa namba utakayotumia kama admin (mfano `0700000000`).
+- Fungua app, **Jisajili** kwa barua pepe halisi + namba ya simu unayotaka kuwa admin
+  (mfano `officiallytony520@gmail.com` / `0700000000`).
 - Kisha kwenye **SQL Editor** endesha:
   ```sql
   update public.profiles set role = 'admin' where username = '0700000000';
   ```
-- Ingia tena — utaona menu za ofisi (Maombi, Wateja, Mikopo, Malipo, Kumbukumbu).
+- Ingia tena — utaona menu za ofisi (Maombi, Wateja, Mikopo, Malipo, Nakala, Kumbukumbu).
 
-### 5. Wezesha GitHub Pages
+### 5. Deploy Edge Functions
+```powershell
+npx.cmd --yes supabase@latest functions deploy login --no-verify-jwt --use-api --yes
+npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --yes
+```
+
+### 6. Wezesha GitHub Pages
 - GitHub repo → **Settings** → **Pages** → *Source*: **Deploy from a branch** →
   Branch: **main**, Folder: **/docs** → **Save**.
 - Baada ya dakika 1–2, fungua: `https://richardisaya522-arch.github.io/Loan-Management-System/`
 
 ### Vidokezo
-- Wateja wanaingia kwa **namba ya simu + password** (bila SMS; simu hubadilishwa kuwa barua pepe ya ndani).
-- Kubadilisha password ya mteja: Supabase Dashboard → *Authentication* → *Users*.
-- Nakala/backup: zinatunzwa na Supabase.
+- Watumiaji wanajisajili kwa **jina, barua pepe halisi na namba ya simu**; taarifa
+  zinahifadhiwa kwenye `profiles`/`customers`.
+- Kuingia: **barua pepe AU namba ya simu + password** (Edge Function `login`).
+- Umesahau password: kiungo cha reset kinatumwa kwenye **barua pepe** iliyosajiliwa.
+  Kiungo kinarudi kwenye GitHub Pages; mtumiaji anaweka password mpya.
+- Barua pepe za Supabase zina kikomo cha kutuma (default ~2 kwa saa). Kwa matumizi
+  halisi, weka **custom SMTP** (Resend/Brevo/SendGrid) kwenye
+  Dashboard → *Authentication* → *SMTP*.
+- Kubadilisha password ya mteja: mteja mwenyewe (`Umesahau password?`), au admin
+  kwenye ukurasa wa mteja (**Weka upya password**).
+- Nakala/backup: zinatunzwa na Supabase; admin anaweza kupakua JSON/CSV kwenye **Nakala**.

@@ -607,6 +607,7 @@ begin
 end; $$;
 
 revoke execute on all functions in schema public from public, anon, authenticated;
+grant execute on function public.phone_registered(text) to anon, authenticated;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.my_customer_id() to authenticated;
 grant execute on function public.save_profile(text, text, text, text, text, text, text, text, text, text) to authenticated;

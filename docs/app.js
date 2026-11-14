@@ -14,20 +14,16 @@
   // ---------- Config check ----------
   if (!CFG.SUPABASE_URL || CFG.SUPABASE_URL.includes("WEWA_") ||
       !window.supabase || !window.supabase.createClient) {
+    if (window.console) console.error("Config haijakamilika.");
     $app.innerHTML = `<div class="container py-5"><div class="alert alert-danger">
-      <h5>Config haijakamilika</h5>
-      Weka <code>SUPABASE_URL</code> na <code>SUPABASE_ANON_KEY</code> kwenye
-      <code>config.js</code>. Angalia README.</div></div>`;
+      <h5>Mfumo haujasanidiwa</h5>
+      Wasiliana na ofisi kwa msaada.</div></div>`;
     return;
   }
 
   const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
   const METHODS = CFG.METHODS || ["Cash"];
-  const APP_VERSION = "2026.11.14";
-  const PROJECT_REF = String(CFG.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0];
-  const LIVE_URL = "https://richardisaya522-arch.github.io/Loan-Management-System/";
-  const RESET_REDIRECT = location.hostname.endsWith("github.io")
-    ? LIVE_URL : location.origin + location.pathname;
+  const RESET_REDIRECT = location.origin + location.pathname.replace(/index\.html?$/i, "");
   // Supabase huweka type=recovery kwenye URL baada ya kubonyeza kiungo cha barua pepe.
   const RECOVERY_LINK = /(?:^|[#&?])type=recovery(?:&|$)/.test(location.href);
 
@@ -99,7 +95,7 @@
     approved: "text-bg-primary", rejected: "text-bg-danger"
   }[s] || "text-bg-secondary");
 
-  let state = { user: null, profile: null, customer: null, route: "", recovery: RECOVERY_LINK };
+  let state = { user: null, profile: null, customer: null, recovery: RECOVERY_LINK };
   const today = () => new Date(new Date().toDateString());
 
   // ---------- Toast/alert ----------
@@ -113,8 +109,9 @@
   }
 
   function errorView(v, error) {
+    if (error && window.console) console.error(error);
     v.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i>
-      <b>Hitilafu:</b> ${esc(error && error.message ? error.message : error)}</div>`;
+      <b>Hitilafu:</b> Imeshindikana kupata taarifa. Jaribu tena au wasiliana na ofisi.</div>`;
   }
 
   async function fnError(error, fallback) {
@@ -175,7 +172,7 @@
         return;
       }
       if (!s && !state.recovery) {
-        state = { user: null, profile: null, customer: null, route: "", recovery: false };
+        state = { user: null, profile: null, customer: null, recovery: false };
         render();
       }
     });
@@ -223,11 +220,6 @@
             </div>
             <h3 class="fw-bold mb-2">Karibu</h3>
             <p class="auth-sub mb-0">Omba mkopo kwa urahisi, fuatilia malipo, na pata risiti zako.</p>
-            <div class="alert alert-light text-dark small mt-4 mb-0">
-              <i class="bi bi-hdd-network"></i> Hii ndiyo <b>mfumo mmoja wa kati</b>.
-              Taarifa zote zinahifadhiwa Supabase, hivyo unaona data ile ile kwenye simu,
-              kompyuta au kifaa chochote.
-            </div>
           </div>
           <p class="auth-sub small mb-0">&copy; ${new Date().getFullYear()} ${esc(CFG.BRAND)}</p>
         </div>
@@ -237,13 +229,8 @@
             <li class="nav-item"><button class="nav-link" data-tab="register">Jisajili</button></li>
           </ul>
           <div id="authPane"></div>
-          <div class="border-top mt-4 pt-3 d-flex flex-wrap gap-2 justify-content-between text-muted small">
-            <span><i class="bi bi-database-check"></i> Data: Supabase · <code>${esc(PROJECT_REF)}</code></span>
-            <span>Toleo ${esc(APP_VERSION)}</span>
-          </div>
-          <p class="text-muted small mb-0 mt-2">
-            Tumia anwani hii pekee: <a href="${LIVE_URL}">${esc(LIVE_URL)}</a>.
-            Toleo la Flask ni la ndani (localhost) tu na halishiriki data hii.
+          <p class="text-muted small mb-0 mt-4 pt-3 border-top">
+            Kwa msaada, wasiliana na ofisi ya ${esc(CFG.BRAND)}.
           </p>
         </div>
       </div>
@@ -444,9 +431,8 @@
       </div>
     </nav>
     <main class="container pb-5" id="view"></main>
-    <footer class="container pb-4 pt-2 d-flex flex-wrap gap-2 justify-content-between text-muted small border-top">
-      <span><i class="bi bi-database-check"></i> Data moja: Supabase · <code>${esc(PROJECT_REF)}</code></span>
-      <span>Toleo ${esc(APP_VERSION)} · <a href="${LIVE_URL}">Mfumo rasmi</a></span>
+    <footer class="container pb-4 pt-2 text-center text-muted small border-top">
+      &copy; ${new Date().getFullYear()} ${esc(CFG.BRAND)}
     </footer>`;
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await sb.auth.signOut();
@@ -900,19 +886,17 @@
       return { t, label, rows: data || [], error, count: count == null ? (data || []).length : count };
     }));
     const ok = results.filter((r) => !r.error);
-    const ref = String(CFG.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0];
+    results.filter((r) => r.error).forEach((r) => console.error(r.t, r.error));
     const day = new Date().toISOString().slice(0, 10);
 
     v.innerHTML = `
       <h3 class="mb-3">Nakala rudufu</h3>
       <div class="alert alert-info small">
-        <i class="bi bi-cloud-check"></i> Supabase hifadhi nakala za database kila siku.
-        <a href="https://supabase.com/dashboard/project/${esc(ref)}/database/backups"
-          target="_blank" rel="noopener">Fungua nakala za Supabase</a>.
-        Hapa unaweza pia kupakua nakala ya data yote kwa JSON au CSV.
+        <i class="bi bi-download"></i> Pakua nakala ya data yote kwa JSON au CSV.
+        Data yako huhifadhiwa kwa usalama na inaweza kupakuliwa na msimamizi pekee.
       </div>
       ${ok.length < results.length ? `<div class="alert alert-warning small">
-        Baadhi ya majedwali hayakupatikana. Angalia hitilafu kwenye orodha hapa chini.</div>` : ""}
+        Baadhi ya majedwali hayakupatikana. Jaribu tena baadaye.</div>` : ""}
       <div class="card p-3 mb-3">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
           <div><h6 class="mb-0">Nakala ya data yote (JSON)</h6>
@@ -926,7 +910,7 @@
         <tbody>${results.map((r) => `<tr>
           <td>${esc(r.label)} <code class="small">${esc(r.t)}</code></td>
           <td>${r.count}</td>
-          <td>${r.error ? `<span class="text-danger small">${esc(r.error.message)}</span>` :
+          <td>${r.error ? '<span class="text-danger small">Imeshindikana</span>' :
             '<span class="badge text-bg-success">Tayari</span>'}</td>
           <td class="text-end"><button class="btn btn-sm btn-outline-primary"
             data-csv="${esc(r.t)}" ${r.error || !r.rows.length ? "disabled" : ""}>CSV</button></td>
@@ -935,10 +919,9 @@
 
     const jsonBtn = document.getElementById("downloadJson");
     if (jsonBtn) jsonBtn.addEventListener("click", () => {
-      const payload = { brand: CFG.BRAND, project: ref,
-        generated_at: new Date().toISOString(), tables: {} };
+      const payload = { brand: CFG.BRAND, generated_at: new Date().toISOString(), tables: {} };
       ok.forEach((r) => { payload.tables[r.t] = r.rows; });
-      downloadFile(`nakala-${ref}-${day}.json`,
+      downloadFile(`nakala-${day}.json`,
         JSON.stringify(payload, null, 2), "application/json");
     });
     v.querySelectorAll("[data-csv]").forEach((b) => b.addEventListener("click", () => {

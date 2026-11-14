@@ -6,7 +6,8 @@ loans.db
 loans.db-wal
 loans.db-shm
 backups/
-server.log
+*.log
+supabase/.temp/
 
 # Python
 __pycache__/

@@ -88,7 +88,8 @@ CREATE TABLE IF NOT EXISTS customers(
 CREATE TABLE IF NOT EXISTS users(
   id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','customer')),
-  customer_id INTEGER REFERENCES customers(id));
+  customer_id INTEGER REFERENCES customers(id),
+  must_change_password INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS loans(
   id INTEGER PRIMARY KEY,
   customer_id INTEGER NOT NULL REFERENCES customers(id),
@@ -127,7 +128,8 @@ MIGRATIONS = {  # kwa database ya zamani isiyo na safu hizi
                   ("guarantor_phone", "TEXT"), ("guarantor_id_number", "TEXT"),
                   ("guarantor_address", "TEXT"),
                   ("bank_name", "TEXT"), ("bank_account", "TEXT")],
-    "users": [("role", "TEXT NOT NULL DEFAULT 'admin'"), ("customer_id", "INTEGER")],
+    "users": [("role", "TEXT NOT NULL DEFAULT 'admin'"), ("customer_id", "INTEGER"),
+              ("must_change_password", "INTEGER NOT NULL DEFAULT 0")],
     "loans": [("decision", "TEXT NOT NULL DEFAULT 'approved'"), ("purpose", "TEXT"),
               ("review_note", "TEXT"), ("applied_at", "TEXT")],
     "agreements": [("guarantor", "TEXT"), ("guarantor_phone", "TEXT"),
@@ -235,14 +237,22 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_pay_loan ON payments(loan_id);
         CREATE INDEX IF NOT EXISTS idx_agr_loan ON agreements(loan_id);""")
     if not db.execute("SELECT 1 FROM users WHERE role='admin'").fetchone():
-        pw = os.environ.get("ADMIN_PASSWORD", "admin123")
-        db.execute("INSERT INTO users(username, password_hash, role) VALUES('admin',?, 'admin')",
-                   (generate_password_hash(pw),))
-        print("Akaunti ya kwanza: admin /", pw, "- ibadilishe!")
+        pw_env = os.environ.get("ADMIN_PASSWORD")
+        pw = pw_env or secrets.token_urlsafe(16)
+        db.execute("""INSERT INTO users(username, password_hash, role, must_change_password)
+                      VALUES('admin', ?, 'admin', ?)""",
+                   (generate_password_hash(pw), 0 if pw_env else 1))
+        if pw_env:
+            print("Akaunti ya kwanza: admin (password kutoka ADMIN_PASSWORD).")
+        else:
+            print("Akaunti ya kwanza: admin /", pw,
+                  "- hii ni password ya muda; itakulazimisha kuibadilisha.")
     else:
-        u = db.execute("SELECT password_hash FROM users WHERE role='admin' LIMIT 1").fetchone()
-        if u and check_password_hash(u[0], "admin123"):
-            print("ONYO: admin bado anatumia password ya kawaida 'admin123'. "
+        u = db.execute("""SELECT id, password_hash FROM users
+                          WHERE role='admin' LIMIT 1""").fetchone()
+        if u and check_password_hash(u[1], "admin123"):
+            db.execute("UPDATE users SET must_change_password=1 WHERE id=?", (u[0],))
+            print("ONYO: admin bado anatumia password ya kawaida. "
                   "Atalazimika kuibadilisha akiingia.")
     db.execute("UPDATE payments SET method='Cash' WHERE method='Taslimu'")   # rudisha hali ya awali
     db.commit()
@@ -532,7 +542,7 @@ def login():
             session.permanent = True
             session.update(user=u["username"], role=u["role"], customer_id=u["customer_id"],
                            _last_seen=time.time())
-            if u["role"] == "admin" and check_password_hash(u["password_hash"], "admin123"):
+            if u["role"] == "admin" and u["must_change_password"]:
                 session["must_change_password"] = True
             audit("login", f"user:{u['username']}", f"role={u['role']}")
             if u["role"] == "customer":
@@ -572,8 +582,8 @@ def change_password():
         elif new != new2:
             e["password_new2"] = "Password mbili hazifanani."
         if not e:
-            db.execute("UPDATE users SET password_hash=? WHERE id=?",
-                       (generate_password_hash(new), u["id"]))
+            db.execute("""UPDATE users SET password_hash=?, must_change_password=0
+                          WHERE id=?""", (generate_password_hash(new), u["id"]))
             db.commit()
             session.pop("must_change_password", None)
             flash("Password yako imebadilishwa kwa mafanikio.", "success")

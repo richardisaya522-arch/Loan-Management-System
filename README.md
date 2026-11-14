@@ -23,7 +23,9 @@ pip install -r requirements.txt
 python app.py
 ```
 Fungua http://127.0.0.1:5000
-- **Ofisi (admin):** `admin` / `admin123` (badilisha kwa `ADMIN_PASSWORD=... python app.py`).
+- **Ofisi (admin):** `admin` / password uliyoweka kwenye `ADMIN_PASSWORD=...`.
+  Usipo-weka, mfumo hutengeneza password ya muda yenye nguvu na kuionyesha kwenye
+  console mara moja; italazimika kuibadilisha kwenye kuingia la kwanza.
 
 ---
 
@@ -86,3 +88,12 @@ npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --
 - Kubadilisha password ya mteja: mteja mwenyewe (`Umesahau password?`), au admin
   kwenye ukurasa wa mteja (**Weka upya password**).
 - Nakala/backup: zinatunzwa na Supabase; admin anaweza kupakua JSON/CSV kwenye **Nakala**.
+
+### Usalama
+- UI ya mfumo rasmi haionyeshi project ref, toleo, wala anwani za kiufundi.
+- `docs/config.js` ina **publishable key** pekee; `service_role` iko ndani ya Edge
+  Functions pekee na haitumwi kwenye browser.
+- Edge Functions zina **CORS allowlist** (Pages + localhost), `Cache-Control: no-store`,
+  na mipaka ya ukubwa wa maombi.
+- `.gitignore` inazuia `*.log`, `backups/`, `loans.db*`, `.env`, na `supabase/.temp/`.
+- Usiweke password, token, au key yoyote kwenye README, commit, au screenshot.

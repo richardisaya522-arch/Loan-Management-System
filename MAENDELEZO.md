@@ -71,6 +71,26 @@ inayohost kwenye **GitHub Pages**.
 - **Vipimo:** login email OK, login simu OK, password mbaya 401, reset request 200,
   `admin-reset-password` 401 bila auth, reset→login OK.
 
+### 2026-11-14 - Usafishaji + usalama
+- **UI:** imeondolewa taarifa ya project ref, toleo, anwani ya mfumo rasmi, na maelezo ya
+  kiufundi ya Supabase kwenye ukurasa wa kuingia na footer. Footer sasa ina copyright pekee.
+- **Nakala:** ukurasa wa nakala hauna kiungo cha Supabase dashboard; unatoa JSON/CSV pekee.
+- **Makosa:** `errorView` inaonyesha ujumbe wa jumla; maelezo ya kiufundi yanabaki kwenye
+  console pekee. Ukurasa wa nakala hauonyeshi majina ya majedwali yenye hitilafu.
+- **Edge Functions:** CORS imezuiliwa kwa Pages + localhost, `Cache-Control: no-store`,
+  mipaka ya `content-length`, na ujumbe wa hitilafu wa jumla (hakuna schema ya DB).
+- **Dead code:** `APP_VERSION`, `PROJECT_REF`, `LIVE_URL`, na `state.route` zimeondolewa;
+  `RESET_REDIRECT` inatokana na `location`.
+- **Schema:** `docs/schema.sql` sasa inarudisha grant ya `phone_registered(text)` kwa `anon`
+  baada ya `revoke` ya mwisho (ilisahaulika awali).
+- **Usafi:** `server.err.log` na `server.out.log` zimeondolewa kwenye Git; `.gitignore`
+  ina `*.log` na `supabase/.temp/`. `backups/ADMIN_PASSWORD_SUPABASE.txt`, `.temp` ya
+  Supabase, na folda ya zamani ya `supabase/` nje ya repo zimefutwa.
+- **Flask:** hakuna password ya default `admin123`; `ADMIN_PASSWORD` ikikosekana, mfumo
+  hutengeneza password ya muda yenye nguvu na kulazimisha kubadilisha. Migration
+  `must_change_password` imeongezwa; `check_password_hash(..., "admin123")` imeondolewa.
+- **Cache-busting:** `?v=20261115` kwa `app.js`/`config.js`/`style.css`.
+
 ## Inayofuata
 1. **Muhimu:** weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase ili reset
    emails zifike kwa uhakika; default ina kikomo cha ~2 kwa saa.

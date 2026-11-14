@@ -9,6 +9,8 @@ create table if not exists public.profiles (
   username text unique not null,
   email text not null default '',
   role text not null default 'customer' check (role in ('admin','customer')),
+  must_change_password boolean not null default false,
+  temp_password_hash text,
   created_at timestamptz not null default now()
 );
 
@@ -112,10 +114,8 @@ create policy profiles_select on public.profiles for select to authenticated
 drop policy if exists profiles_insert on public.profiles;
 create policy profiles_insert on public.profiles for insert to authenticated
   with check (id = auth.uid() and role = 'customer');   -- HAKUNA kujipa admin
+-- Uandishi wa profiles unafanywa na Edge Functions (service_role); hakuna update ya client.
 drop policy if exists profiles_update on public.profiles;
-create policy profiles_update on public.profiles for update to authenticated
-  using (id = auth.uid() or public.is_admin())
-  with check ((id = auth.uid() and role = 'customer') or public.is_admin());
 
 -- customers
 drop policy if exists customers_select on public.customers;

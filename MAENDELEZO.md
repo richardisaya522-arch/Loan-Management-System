@@ -93,11 +93,32 @@ inayohost kwenye **GitHub Pages**.
   (clipboard + fallback ya `execCommand`), badala ya `alert()` inayotoweka.
 - **Cache-busting:** `?v=20261115b` kwa `app.js`/`config.js`/`style.css`.
 
+### 2026-11-14 - Email ya password ya muda + kulazimisha kubadilisha
+- **Migration** `20261114120000_force_password_change.sql` (imepushwa remote):
+  `profiles.must_change_password` + `profiles.temp_password_hash`; `profiles_update`
+  policy imeondolewa na update grant imevutwa (client hawezi kujiondoa kwenye flag).
+- **`admin-reset-password`:** inachagua email ya mteja (fallback `auth.users`), inaweka
+  flag + SHA-256 hash, inatuma email kwa Resend (`RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`),
+  na inarudisha `email_sent`/`email_message`. Ime-deploy.
+- **`complete-password-change`:** function mpya (JWT, password policy, hash check,
+  update ya password, clear flag). Ime-deploy.
+- **App:** mteja aliye na flag anaona screen ya password mpya + confirm pekee (shell
+  ndogo); akimaliza, ameingizwa tena kwenye login na email/username yake imejazwa.
+  Password zote zina kitufe cha **jicho** (onyesha/ficha). Modal ya admin inaonyesha
+  kama email imetumwa au la. Cache-bust: `?v=20261115c`.
+- **Admin:** password imewekwa upya kwa GoTrue Admin API na login imethibitishwa.
+- **Vipimo end-to-end (temp user):** reset -> flag -> temp login -> direct update
+  imezuiwa (403) -> password ya muda imekataliwa -> password rahisi imekataliwa ->
+  complete -> flag imeondolewa -> login mpya OK -> password ya zamani imekataliwa ->
+  cleanup OK. `EMAIL_SENT=false` kwa sababu `RESEND_API_KEY` haipo bado.
+
 ## Inayofuata
-1. **Muhimu:** weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase ili reset
-   emails zifike kwa uhakika; default ina kikomo cha ~2 kwa saa.
-2. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
-3. (Hiari) Vipimo zaidi vya RLS / CI.
+1. **Muhimu:** weka `RESEND_API_KEY` + `EMAIL_FROM` (Resend) kwenye Supabase secrets
+   ili email ya password ya muda itumike; bila hiyo admin anatumia **Copy**.
+2. Weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase Auth kwa reset emails za
+   kawaida; default ina kikomo cha ~2 kwa saa.
+3. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
+4. (Hiari) Vipimo zaidi vya RLS / CI.
 
 ## CLI ya Supabase — hali
 - `supabase init` + `link` zimefanyika; `supabase/` ina `config.toml` na migrations.
@@ -130,6 +151,8 @@ inayohost kwenye **GitHub Pages**.
 - Reset ya password: Supabase email → Pages (`#/reset-password`). Ongeza custom SMTP kwa
   uhakika wa kutuma.
 - Kubadilisha password ya mteja: mteja mwenyewe, au admin → mteja → "Weka upya password".
+  Admin anaweza ku-copy password ya muda; ikiwa `RESEND_API_KEY` imewekwa, mteja
+  hupokea email na password hiyo na analazimishwa kuibadilisha akiingia.
 - Key ya umma ni `sb_publishable_...`; usalama ni RLS. Usiweke `sb_secret_...` kwenye `docs/`.
 - Backup: Supabase inatunza; admin anaweza kupakua JSON/CSV.
 - Flask (`app.py`) inaachwa kama akiba; haifutwi.
@@ -150,4 +173,8 @@ npx.cmd --yes supabase@latest db push --linked --yes
 # Edge Functions
 npx.cmd --yes supabase@latest functions deploy login --no-verify-jwt --use-api --yes
 npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --yes
+npx.cmd --yes supabase@latest functions deploy complete-password-change --use-api --yes
+
+# Email ya password ya muda (Resend)
+npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM="ZABURI YA 23 <no-reply@domain-yako>" APP_URL="https://richardisaya522-arch.github.io/Loan-Management-System/" --project-ref ghxahscpxobuoorgyedn
 ```

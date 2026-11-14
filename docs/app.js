@@ -96,6 +96,7 @@
   }[s] || "text-bg-secondary");
 
   let state = { user: null, profile: null, customer: null, recovery: RECOVERY_LINK };
+  let pendingLoginIdentifier = "";
   const today = () => new Date(new Date().toDateString());
 
   // ---------- Toast/alert ----------
@@ -168,6 +169,11 @@
           </div>
           <div class="modal-body">
             <p class="mb-2">Password ya muda kwa <b>${esc(info.name || info.phone || "mteja")}</b>:</p>
+            ${info.emailSent
+              ? `<div class="alert alert-success small py-2"><i class="bi bi-envelope-check"></i>
+                Email imetumwa kwa <b>${esc(info.email || "")}</b>.</div>`
+              : `<div class="alert alert-secondary small py-2"><i class="bi bi-envelope-x"></i>
+                ${esc(info.emailMessage || "Email haijatumwa. Copy password hii na mpe mteja.")}</div>`}
             <div class="input-group mb-3">
               <input class="form-control font-monospace" id="tempPasswordValue" readonly
                 value="${esc(info.password)}">
@@ -206,6 +212,38 @@
     el.addEventListener("hidden.bs.modal", () => { modal.dispose(); el.remove(); });
     modal.show();
   }
+
+  // Ongeza kitufe cha kuonyesha/kuficha kwenye kila password input.
+  function enhancePasswordInputs(root) {
+    if (!root) return;
+    root.querySelectorAll('input[type="password"]').forEach((input) => {
+      if (input.dataset.pwEnhanced === "1") return;
+      if (input.parentElement && input.parentElement.classList.contains("input-group")) return;
+      input.dataset.pwEnhanced = "1";
+      const wrap = document.createElement("div");
+      wrap.className = "input-group";
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-outline-secondary";
+      btn.innerHTML = '<i class="bi bi-eye"></i>';
+      btn.setAttribute("aria-label", "Onyesha password");
+      btn.setAttribute("title", "Onyesha password");
+      btn.addEventListener("click", () => {
+        const show = input.type === "password";
+        input.type = show ? "text" : "password";
+        btn.innerHTML = show ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+        btn.setAttribute("aria-label", show ? "Ficha password" : "Onyesha password");
+        btn.setAttribute("title", show ? "Ficha password" : "Onyesha password");
+        input.focus();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  const pwObserver = new MutationObserver(() => enhancePasswordInputs($app));
+  pwObserver.observe($app, { childList: true, subtree: true });
 
   function downloadFile(name, content, type) {
     const blob = new Blob([content], { type: type + ";charset=utf-8" });
@@ -342,6 +380,10 @@
         </div>
         <button class="btn btn-primary btn-lg w-100">Ingia</button>
       </form>`;
+    if (pendingLoginIdentifier) {
+      const idInput = $app.querySelector('#loginForm input[name="identifier"]');
+      if (idInput) idInput.value = pendingLoginIdentifier;
+    }
     document.getElementById("forgotLink").addEventListener("click", (ev) => {
       ev.preventDefault();
       authForgotForm();
@@ -361,6 +403,7 @@
       });
       if (se) return toast(se.message, "danger");
       state.user = (await sb.auth.getUser()).data.user;
+      pendingLoginIdentifier = "";
       await loadProfile();
       location.hash = "#/";
       render();
@@ -488,6 +531,30 @@
   }
 
   function renderShell() {
+    if (state.profile && state.profile.must_change_password) {
+      $app.innerHTML = `
+      <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container">
+          <span class="navbar-brand d-flex align-items-center gap-2">
+            <i class="bi bi-cash-coin fs-4"></i>
+            <span><span class="fst-italic small d-block lh-1">${esc(CFG.BRAND)}</span>
+            <span class="brand-name small">LOAN MANAGEMENT</span></span>
+          </span>
+          <button class="btn btn-outline-light btn-sm" id="logoutBtn">
+            <i class="bi bi-box-arrow-right"></i> Toka (${esc(state.profile.username || "")})</button>
+        </div>
+      </nav>
+      <main class="container pb-5" id="view"></main>
+      <footer class="container pb-4 pt-2 text-center text-muted small border-top">
+        &copy; ${new Date().getFullYear()} ${esc(CFG.BRAND)}
+      </footer>`;
+      document.getElementById("logoutBtn").addEventListener("click", async () => {
+        pendingLoginIdentifier = "";
+        await sb.auth.signOut();
+      });
+      renderView();
+      return;
+    }
     const items = navItems();
     const cur = location.hash || "#/";
     $app.innerHTML = `
@@ -513,6 +580,7 @@
       &copy; ${new Date().getFullYear()} ${esc(CFG.BRAND)}
     </footer>`;
     document.getElementById("logoutBtn").addEventListener("click", async () => {
+      pendingLoginIdentifier = "";
       await sb.auth.signOut();
     });
     renderView();
@@ -542,6 +610,7 @@
         Profile yako haijapatikana. Ingia tena au wasiliana na ofisi.</div>`;
       return;
     }
+    if (state.profile.must_change_password) return forcePasswordView(v);
     if (h === "#/" || h === "") return isAdmin ? adminDashboard(v) : customerHome(v);
     if (h === "#/apply") return applyView(v);
     if (h === "#/profile") return profileView(v);
@@ -735,6 +804,53 @@
       toast("Password imebadilishwa. Karibu!", "success");
       location.hash = "#/";
       render();
+    });
+  }
+
+  function forcePasswordView(v) {
+    const who = state.profile ? (state.profile.username || state.profile.email || "") : "";
+    v.innerHTML = `
+      <div class="row justify-content-center"><div class="col-lg-6">
+        <div class="card p-4">
+          <h3 class="mb-2">Weka password mpya</h3>
+          <p class="text-muted small">Umeingia kwa password ya muda. Kwa usalama, weka
+            password mpya kabla ya kuendelea.</p>
+          <form id="forcePasswordForm">
+            <div class="mb-3"><label class="form-label">Password mpya</label>
+              <input class="form-control" type="password" name="new"
+                autocomplete="new-password" required></div>
+            <div class="mb-3"><label class="form-label">Rudia password mpya</label>
+              <input class="form-control" type="password" name="new2"
+                autocomplete="new-password" required></div>
+            <button class="btn btn-primary w-100"><i class="bi bi-check-lg"></i>
+              Hifadhi na uingie tena</button>
+          </form>
+        </div>
+      </div></div>`;
+    document.getElementById("forcePasswordForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const nw = f.new.value, nw2 = f.new2.value;
+      const prob = passwordProblem(nw, who);
+      if (prob) return toast(prob, "danger");
+      if (nw !== nw2) return toast("Password mbili hazifanani.", "danger");
+      const btn = f.querySelector("button");
+      btn.disabled = true;
+      const { data, error } = await sb.functions.invoke("complete-password-change", {
+        body: { password: nw }
+      });
+      if (error || (data && data.error)) {
+        btn.disabled = false;
+        const msg = (data && data.error) ||
+          await fnError(error, "Imeshindikana kubadilisha password. Jaribu tena.");
+        return toast(msg, "danger");
+      }
+      const ident = state.profile ? (state.profile.email || state.profile.username || "") : "";
+      pendingLoginIdentifier = ident;
+      await sb.auth.signOut();
+      state = { user: null, profile: null, customer: null, recovery: false };
+      render();
+      toast("Password imebadilishwa. Ingia na password yako mpya.", "success");
     });
   }
 
@@ -1146,13 +1262,17 @@
         body: { customer_id: c.id }
       });
       resetBtn.disabled = false;
-      if (error) {
-        const msg = error.context?.error || error.message || "Imeshindikana.";
-        return toast(msg, "danger");
-      }
+      if (error) return toast(await fnError(error, "Imeshindikana."), "danger");
       if (data && data.error) return toast(data.error, "danger");
       if (!data || !data.password) return toast("Password ya muda haikupatikana. Jaribu tena.", "danger");
-      showTempPasswordModal({ name: data.name || c.name, phone: c.phone, password: data.password });
+      showTempPasswordModal({
+        name: data.name || c.name,
+        phone: c.phone,
+        password: data.password,
+        email: data.email || "",
+        emailSent: !!data.email_sent,
+        emailMessage: data.email_message || ""
+      });
     });
   }
 

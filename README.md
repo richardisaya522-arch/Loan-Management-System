@@ -69,7 +69,20 @@ Fungua http://127.0.0.1:5000
 ```powershell
 npx.cmd --yes supabase@latest functions deploy login --no-verify-jwt --use-api --yes
 npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --yes
+npx.cmd --yes supabase@latest functions deploy complete-password-change --use-api --yes
 ```
+
+### 5b. Email ya password ya muda (Resend)
+- Admin anapoweka upya password ya mteja, mfumo hutengeneza password ya muda, kuiweka
+  kwenye akaunti, na kumlazimisha mteja kuibadilisha akiingia mara ya kwanza.
+- Ili password ya muda itumwe kwa barua pepe, weka secrets hizi:
+  ```powershell
+  npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM="ZABURI YA 23 <no-reply@domain-yako>" APP_URL="https://richardisaya522-arch.github.io/Loan-Management-System/" --project-ref ghxahscpxobuoorgyedn
+  ```
+  - Bila `RESEND_API_KEY`, modal ya admin bado inaonyesha password ya muda na kitufe cha
+    **Copy**; mpe mteja kwa WhatsApp/SMS.
+  - Kwa majaribio, `EMAIL_FROM` inaweza kuwa `ZABURI YA 23 <onboarding@resend.dev>`;
+    kwa matumizi halisi thibitisha domain kwenye Resend.
 
 ### 6. Wezesha GitHub Pages
 - GitHub repo → **Settings** → **Pages** → *Source*: **Deploy from a branch** →
@@ -82,12 +95,18 @@ npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --
 - Kuingia: **barua pepe AU namba ya simu + password** (Edge Function `login`).
 - Umesahau password: kiungo cha reset kinatumwa kwenye **barua pepe** iliyosajiliwa.
   Kiungo kinarudi kwenye GitHub Pages; mtumiaji anaweka password mpya.
-- Barua pepe za Supabase zina kikomo cha kutuma (default ~2 kwa saa). Kwa matumizi
-  halisi, weka **custom SMTP** (Resend/Brevo/SendGrid) kwenye
-  Dashboard → *Authentication* → *SMTP*.
+- Barua pepe za Supabase zina kikomo cha kutuma (default ~2 kwa saa). Kwa reset ya
+  kawaida, weka **custom SMTP** (Resend/Brevo/SendGrid) kwenye
+  Dashboard → *Authentication* → *SMTP*. Kwa email ya password ya muda, tumia
+  `RESEND_API_KEY` + `EMAIL_FROM` (ona 5b).
 - Kubadilisha password ya mteja: mteja mwenyewe (`Umesahau password?`), au admin
   kwenye ukurasa wa mteja (**Weka upya password**). Admin anaona password ya muda
-  kwenye modal na anaweza ku-copy kwa kitufe cha **Copy** kabla ya kuifunga.
+  kwenye modal na anaweza ku-copy kwa kitufe cha **Copy**; ikiwa Resend imesanidiwa,
+  mteja hupokea password hiyo kwa barua pepe.
+- Mteja aliyepewa password ya muda huingia kwa **barua pepe + password ya muda**,
+  kisha analazimishwa kuweka **password mpya + kuthibitisha**, na kurudishwa kwenye
+  login ya kawaida ili aingie na password mpya.
+- Sehemu zote za password zina kitufe cha **jicho** kuonyesha/kuficha password.
 - Nakala/backup: zinatunzwa na Supabase; admin anaweza kupakua JSON/CSV kwenye **Nakala**.
 
 ### Usalama
@@ -95,6 +114,9 @@ npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --
 - `docs/config.js` ina **publishable key** pekee; `service_role` iko ndani ya Edge
   Functions pekee na haitumwi kwenye browser.
 - Edge Functions zina **CORS allowlist** (Pages + localhost), `Cache-Control: no-store`,
-  na mipaka ya ukubwa wa maombi.
+  na mipaka ya ukubwa wa maombi. `complete-password-change` hukagua JWT, password
+  policy, na hash ya password ya muda kabla ya kuiruhusu.
+- Update ya moja kwa moja kwenye `profiles` imezuiwa (policy + grant); mabadiliko
+  hufanywa na Edge Functions pekee.
 - `.gitignore` inazuia `*.log`, `backups/`, `loans.db*`, `.env`, na `supabase/.temp/`.
 - Usiweke password, token, au key yoyote kwenye README, commit, au screenshot.

@@ -89,7 +89,9 @@ inayohost kwenye **GitHub Pages**.
 - **Flask:** hakuna password ya default `admin123`; `ADMIN_PASSWORD` ikikosekana, mfumo
   hutengeneza password ya muda yenye nguvu na kulazimisha kubadilisha. Migration
   `must_change_password` imeongezwa; `check_password_hash(..., "admin123")` imeondolewa.
-- **Cache-busting:** `?v=20261115` kwa `app.js`/`config.js`/`style.css`.
+- **Reset ya mteja:** admin anaona password ya muda kwenye modal yenye kitufe cha **Copy**
+  (clipboard + fallback ya `execCommand`), badala ya `alert()` inayotoweka.
+- **Cache-busting:** `?v=20261115b` kwa `app.js`/`config.js`/`style.css`.
 
 ## Inayofuata
 1. **Muhimu:** weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase ili reset

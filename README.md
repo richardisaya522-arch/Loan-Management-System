@@ -86,7 +86,8 @@ npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --
   halisi, weka **custom SMTP** (Resend/Brevo/SendGrid) kwenye
   Dashboard → *Authentication* → *SMTP*.
 - Kubadilisha password ya mteja: mteja mwenyewe (`Umesahau password?`), au admin
-  kwenye ukurasa wa mteja (**Weka upya password**).
+  kwenye ukurasa wa mteja (**Weka upya password**). Admin anaona password ya muda
+  kwenye modal na anaweza ku-copy kwa kitufe cha **Copy** kabla ya kuifunga.
 - Nakala/backup: zinatunzwa na Supabase; admin anaweza kupakua JSON/CSV kwenye **Nakala**.
 
 ### Usalama

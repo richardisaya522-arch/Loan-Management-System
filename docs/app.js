@@ -129,6 +129,84 @@
     return (error && error.message) || fallback;
   }
 
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:-1000px;left:-1000px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        const ok = document.execCommand("copy");
+        ta.remove();
+        ok ? resolve() : reject(new Error("copy failed"));
+      } catch (e) {
+        ta.remove();
+        reject(e);
+      }
+    });
+  }
+
+  function showTempPasswordModal(info) {
+    if (!window.bootstrap || !window.bootstrap.Modal) {
+      window.prompt("Password ya muda (copy kisha bonyeza OK):", info.password);
+      return;
+    }
+    const el = document.createElement("div");
+    el.className = "modal fade";
+    el.tabIndex = -1;
+    el.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-key"></i> Password ya muda</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Funga"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Password ya muda kwa <b>${esc(info.name || info.phone || "mteja")}</b>:</p>
+            <div class="input-group mb-3">
+              <input class="form-control font-monospace" id="tempPasswordValue" readonly
+                value="${esc(info.password)}">
+              <button class="btn btn-primary" id="copyTempPassword" type="button">
+                <i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+            <div class="alert alert-warning small mb-0">
+              <i class="bi bi-exclamation-triangle"></i> Bonyeza <b>Copy</b> au chagua password
+              kisha ubonyeze <b>Ctrl+C</b>. Mpe mteja password hii sasa; ni ya muda na
+              atalazimika kuibadilisha mara ya kwanza.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Funga</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    const modal = new bootstrap.Modal(el, { backdrop: "static", keyboard: true });
+    const input = el.querySelector("#tempPasswordValue");
+    const btn = el.querySelector("#copyTempPassword");
+    el.addEventListener("shown.bs.modal", () => { input.focus(); input.select(); });
+    btn.addEventListener("click", async () => {
+      try {
+        await copyText(info.password);
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Imenakiliwa';
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-success");
+        toast("Password ya muda imenakiliwa.", "success");
+      } catch (_) {
+        input.focus();
+        input.select();
+        toast("Chagua password kisha bonyeza Ctrl+C kunakili.", "warning");
+      }
+    });
+    el.addEventListener("hidden.bs.modal", () => { modal.dispose(); el.remove(); });
+    modal.show();
+  }
+
   function downloadFile(name, content, type) {
     const blob = new Blob([content], { type: type + ";charset=utf-8" });
     const a = document.createElement("a");
@@ -1073,7 +1151,8 @@
         return toast(msg, "danger");
       }
       if (data && data.error) return toast(data.error, "danger");
-      alert(`Password ya muda kwa ${data.name || c.phone}: ${data.password}\n\nMteja abadilishe mara ya kwanza.`);
+      if (!data || !data.password) return toast("Password ya muda haikupatikana. Jaribu tena.", "danger");
+      showTempPasswordModal({ name: data.name || c.name, phone: c.phone, password: data.password });
     });
   }
 

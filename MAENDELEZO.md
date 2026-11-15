@@ -21,6 +21,10 @@ inayohost kwenye **GitHub Pages**.
   - `20261016203931_init_schema`
   - `20261016220000_reload_schema`
   - `20261101090000_harden_loan_workflows`
+  - `20261108120000_security_hardening`
+  - `20261114090000_real_email_auth`
+  - `20261114120000_force_password_change`
+  - `20261115120000_loan_contract_application`
 - **Auth config (remote):** `mailer_autoconfirm = true` (Confirm email OFF),
   `security_captcha_enabled = false`, `site_url` + `uri_allow_list` = Pages URL.
 - **Admin:** `officiallytony520@gmail.com` (`role = admin`, namba `0700000000`).
@@ -112,13 +116,48 @@ inayohost kwenye **GitHub Pages**.
   complete -> flag imeondolewa -> login mpya OK -> password ya zamani imekataliwa ->
   cleanup OK. `EMAIL_SENT=false` kwa sababu `RESEND_API_KEY` haipo bado.
 
+### 2026-11-15 - Mkataba kamili wakati wa ombi
+- **Migration mpya:** `20261115120000_loan_contract_application.sql` (imepandishwa remote
+  kwa `supabase db push`). Inaongeza `agreements.signed_on`, `collateral_1..3`,
+  `collateral_value`; columns na RPCs zimehakikiwa kwenye production.
+- **RPC mpya:**
+  - `apply_loan_contract(...)` - mteja anajaza mkataba wote na kuunda mkopo + agreement
+    kwa mpigo (uthibitisho wa profile, kiasi, miezi, tarehe, majina ya saini, dhamana).
+  - `resubmit_loan_contract(...)` - mteja (owner) akiwa `pending` anarekebisha na kutuma
+    tena; `review_note` inafutwa.
+  - `request_loan_changes(...)` - admin (pending pekee) anatuma ujumbe wa marekebisho
+    kwenye `loans.review_note` (herufi 3-300).
+- **App tuli (`docs/app.js`):**
+  - Fomu ya ombi sasa ni mkataba kamili (mahali, tarehe, shahidi, mdhamini, dhamana,
+    accept + vipindi a-f); saini ya mkopaji lazima ifanane na `customers.name`, na ya
+    mdhamini na `customers.guarantor_name` (case/nafasi hazizingatiwi).
+  - `loanDetailView`: mkataba huonekana kwa mteja na admin; mteja anaweza kurekebisha
+    akiwa pending; admin anaona ujumbe wa marekebisho, Idhinisha, na Kataa.
+  - Admin `applicationsView`: inaonyesha kama mkataba umejazwa, ujumbe wa marekebisho,
+    na kitufe cha **Rekebisha**.
+  - `approveDialog` inaonya kama mkataba haujajazwa (haiwezi kuzuia idhini kwa mkataba
+    wa zamani), na sasa inatumia tarehe ya ndani.
+  - `printContract` inachapisha mkataba (pending: "Itawekwa baada ya idhini"; approved:
+    riba/jumla/tarehe halisi) na kufungua print dialog.
+  - Backward compatible: `apply_loan` ya zamani ipo; malipo yanazuiwa hadi saini ya
+    mkopeshaji (kama ilivyokuwa).
+- **Usalama wa kikao:** baada ya **dakika 10 bila shughuli** (mouse/keys/scroll/touch),
+  app inafanya `signOut({scope:"local"})`, inafuta token za Supabase kwenye localStorage,
+  na kupakia upya ukurasa; mtumiaji analazimika kuingia tena na password. Ujumbe
+  unaonekana kwenye fomu ya kuingia.
+- **Cache-bust:** `docs/index.html` -> `app.js?v=20261115e`.
+- **Supabase CLI:** `login` + `link --project-ref ghxahscpxobuoorgyedn` zimefanyika;
+  migration imepandishwa. **Bado:** deploy `docs/` kwa GitHub Pages.
+
 ## Inayofuata
-1. **Muhimu:** weka `RESEND_API_KEY` + `EMAIL_FROM` (Resend) kwenye Supabase secrets
+1. **Muhimu:** deploy `docs/` (commit + push) ili mkataba mpya na auto-lock ya dakika 10
+   vifikie GitHub Pages.
+2. **Muhimu:** weka `RESEND_API_KEY` + `EMAIL_FROM` (Resend) kwenye Supabase secrets
    ili email ya password ya muda itumike; bila hiyo admin anatumia **Copy**.
-2. Weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase Auth kwa reset emails za
+3. Weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase Auth kwa reset emails za
    kawaida; default ina kikomo cha ~2 kwa saa.
-3. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
-4. (Hiari) Vipimo zaidi vya RLS / CI.
+4. (Hiari) Kizuizi cha mkopo uliochelewa (overdue) kwenye `apply_loan`.
+5. (Hiari) Vipimo zaidi vya RLS / CI.
 
 ## CLI ya Supabase — hali
 - `supabase init` + `link` zimefanyika; `supabase/` ina `config.toml` na migrations.
@@ -139,6 +178,10 @@ inayohost kwenye **GitHub Pages**.
   `functions deploy login --no-verify-jwt` na `functions deploy admin-reset-password`
   zimefanyika kwa `--use-api`. Admin email/password na customer email zimebadilishwa kupitia
   GoTrue Admin API; `profiles.email` imesawazishwa na trigger.
+- **2026-11-15:** `supabase login`, `init` (tayari ilikuwa), na
+  `link --project-ref ghxahscpxobuoorgyedn` zimefanyika; `db push --linked --yes`
+  imepandisha `20261115120000_loan_contract_application.sql`. Columns na RPCs
+  zimehakikiwa kwenye production; `authenticated` ana execute, `anon` hana.
 - **Kumbuka:** `supabase config push` haihitajiki sasa — remote ina `site_url` na
   `additional_redirect_urls` sahihi (Pages). `config.toml` ya local imesawazishwa ili
   push ya baadaye isivunje.

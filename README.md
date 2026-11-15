@@ -84,6 +84,19 @@ npx.cmd --yes supabase@latest functions deploy complete-password-change --use-ap
   - Kwa majaribio, `EMAIL_FROM` inaweza kuwa `ZABURI YA 23 <onboarding@resend.dev>`;
     kwa matumizi halisi thibitisha domain kwenye Resend.
 
+### 5c. Mkataba kamili wakati wa ombi
+- Mteja anajaza mkataba (mahali, tarehe ya kusaini, shahidi wa mkopaji, mdhamini,
+  shahidi wa mdhamini, dhamana 1–3 na thamani) wakati wa kuomba mkopo.
+- Admin anaona mkataba kwenye ukaguzi, anaweza kutuma ujumbe wa marekebisho, au
+  kuidhinisha/kukataa. Mteja anaweza kurekebisha na kutuma tena akiwa pending.
+- Riba, jumla ya kulipa na tarehe ya mwisho huwekwa na ofisi wakati wa idhini;
+  kabla ya hapo mkataba huonyesha "Itawekwa baada ya idhini".
+- Mkataba unaweza kuchapishwa (Ctrl+P / kuhifadhi PDF) na mteja na admin.
+- Usalama: akikaa **dakika 10 bila shughuli**, mfumo unamtoa kwenye kikao na
+  kupakia upya ukurasa; ni lazima aingie tena na password yake.
+- Pandisha migration: `npx.cmd --yes supabase@latest db push --linked --yes`
+  (au endesha `docs/schema.sql` kwa fresh install).
+
 ### 6. Wezesha GitHub Pages
 - GitHub repo → **Settings** → **Pages** → *Source*: **Deploy from a branch** →
   Branch: **main**, Folder: **/docs** → **Save**.

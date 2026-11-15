@@ -97,7 +97,61 @@
 
   let state = { user: null, profile: null, customer: null, recovery: RECOVERY_LINK };
   let pendingLoginIdentifier = "";
+  const IDLE_LIMIT_MS = 10 * 60 * 1000;
+  let idleTimer = null;
+  let idleBound = false;
+  let idleLocking = false;
+  let lastActivityAt = 0;
   const today = () => new Date(new Date().toDateString());
+  const localDate = () => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  };
+
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+    if (!state.user) return;
+    idleTimer = setTimeout(lockForInactivity, IDLE_LIMIT_MS);
+  }
+
+  function noteActivity() {
+    const now = Date.now();
+    if (now - lastActivityAt < 1000) return;
+    lastActivityAt = now;
+    resetIdleTimer();
+  }
+
+  function bindIdleWatch() {
+    if (idleBound) return;
+    idleBound = true;
+    ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"].forEach((ev) =>
+      window.addEventListener(ev, noteActivity, { passive: true }));
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      if (state.user && lastActivityAt && Date.now() - lastActivityAt >= IDLE_LIMIT_MS) {
+        lockForInactivity();
+      } else {
+        noteActivity();
+      }
+    });
+  }
+
+  async function lockForInactivity() {
+    if (idleLocking) return;
+    idleLocking = true;
+    try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
+    try {
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith("sb-") && (k.includes("auth-token") || k.includes("code-verifier")))
+          localStorage.removeItem(k);
+      });
+      sessionStorage.setItem("idleReload", "1");
+    } catch (_) {}
+    state = { user: null, profile: null, customer: null, recovery: false };
+    location.hash = "#/";
+    location.reload();
+  }
 
   // ---------- Toast/alert ----------
   function toast(msg, kind) {
@@ -270,6 +324,7 @@
 
   // ---------- Boot ----------
   async function boot() {
+    bindIdleWatch();
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       state.user = session.user;
@@ -280,6 +335,7 @@
         state.recovery = true;
         if (s) {
           state.user = s.user;
+          resetIdleTimer();
           loadProfile().then(() => {
             if (location.hash !== "#/reset-password") location.hash = "#/reset-password";
             render();
@@ -288,6 +344,8 @@
         return;
       }
       if (!s && !state.recovery) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
         state = { user: null, profile: null, customer: null, recovery: false };
         render();
       }
@@ -310,6 +368,7 @@
       const { data: cust } = await sb.from("customers").select("*").eq("user_id", state.user.id).maybeSingle();
       state.customer = cust;
     }
+    resetIdleTimer();
   }
 
   // ---------- Router ----------
@@ -367,7 +426,14 @@
   }
 
   function authLoginForm() {
+    let idle = "";
+    try {
+      idle = sessionStorage.getItem("idleReload") || "";
+      if (idle) sessionStorage.removeItem("idleReload");
+    } catch (_) {}
     $app.querySelector("#authPane").innerHTML = `
+      ${idle ? `<div class="alert alert-warning py-2 small"><i class="bi bi-clock-history"></i>
+        Umekaa dakika 10 bila shughuli. Tafadhali ingia tena na password yako.</div>` : ""}
       <form id="loginForm">
         <div class="mb-3"><label class="form-label">Barua pepe au namba ya simu</label>
           <input class="form-control form-control-lg" name="identifier" autocomplete="username"
@@ -638,14 +704,17 @@
     let cards = "";
     for (const l of loans || []) {
       const b = buildLoan(l, await paymentsFor(l.id), today());
+      const st = l.decision === "approved" ? b.status : l.decision;
       cards += `<div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body">
         <div class="d-flex justify-content-between"><span class="text-muted small">Mkopo #${l.id}</span>
-        <span class="badge ${badge(b.status)}">${statusTxt(b.status)}</span></div>
+        <span class="badge ${badge(st)}">${statusTxt(st)}</span></div>
         <div class="fs-4 fw-bold my-2">${tzs(l.principal)}</div>
         ${l.decision === "approved" ? `
           <div class="small text-muted">Deni lililobaki: <b>${tzs(b.balance)}</b> / ${tzs(b.total)}</div>
           <div class="progress my-2" style="height:6px"><div class="progress-bar" style="width:${Math.min(100, Math.round(b.paid / b.total * 100))}%"></div></div>` :
-          `<div class="small text-muted">Hali: ${l.decision === "pending" ? "Inasubiri ukaguzi" : "Imekataliwa"}</div>`}
+          `<div class="small text-muted">Hali: ${l.decision === "pending" ? "Inasubiri ukaguzi" : "Imekataliwa"}</div>
+          ${l.decision === "pending" && l.review_note ? `<div class="small text-warning mt-1">
+            <i class="bi bi-chat-left-text"></i> Ujumbe: ${esc(l.review_note)}</div>` : ""}`}
         <a href="#/loan/${l.id}" class="btn btn-sm btn-outline-primary mt-2">Fungua</a>
       </div></div></div>`;
     }
@@ -671,6 +740,404 @@
       rejected: "Imekataliwa" }[s] || s;
   }
 
+  // ---------- Mkataba wa mkopo ----------
+  function contractFieldsHtml(c, loan, agr, prefix) {
+    const cust = c || {};
+    const a = agr || {};
+    const gname = a.guarantor || cust.guarantor_name || "";
+    const gphone = a.guarantor_phone || cust.guarantor_phone || "";
+    const signed = a.signed_on ? String(a.signed_on).slice(0, 10) : localDate();
+    const val = (x) => esc(x == null ? "" : x);
+    return `
+      <div class="col-12"><div class="form-section">Taarifa za mkopo</div></div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}Principal">Kiasi (TZS)</label>
+        <input class="form-control" type="number" id="${prefix}Principal" name="principal"
+          min="${CFG.MIN_LOAN}" max="${CFG.MAX_LOAN}" value="${loan ? loan.principal : ""}" required>
+        <div class="form-text">Kati ya ${tzs(CFG.MIN_LOAN)} na ${tzs(CFG.MAX_LOAN)}.</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}Months">Muda (miezi)</label>
+        <input class="form-control" type="number" id="${prefix}Months" name="months"
+          min="1" max="${CFG.MAX_MONTHS}" value="${loan ? loan.months : ""}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}Purpose">Mkopo utatumika kwa nini?</label>
+        <textarea class="form-control" id="${prefix}Purpose" name="purpose" maxlength="200"
+          required>${val(loan && loan.purpose)}</textarea>
+      </div>
+      <div class="col-12">
+        <div class="alert alert-info py-2 small mb-0">
+          Riba, jumla ya kulipa na tarehe ya mwisho vitawekwa na ofisi baada ya ukaguzi.
+          Mkataba utakuwa kamili baada ya idhini.
+        </div>
+      </div>
+
+      <div class="col-12"><hr class="my-1"><div class="form-section">Mkataba</div></div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}Place">Mahali ulipokazia mkataba</label>
+        <input class="form-control" id="${prefix}Place" name="place" maxlength="120"
+          value="${val(a.borrower_place)}" placeholder="Mfano: Dar es Salaam" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}SignedOn">Tarehe ya kusaini</label>
+        <input class="form-control" type="date" id="${prefix}SignedOn" name="signed_on"
+          value="${val(signed)}" max="${localDate()}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}BorrowerWitness">Jina la shahidi wa mkopaji</label>
+        <input class="form-control" id="${prefix}BorrowerWitness" name="borrower_witness"
+          maxlength="80" value="${val(a.borrower_witness)}" placeholder="Jina kamili la shahidi wako" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="${prefix}BorrowerSign">Saini ya mkopaji (andika jina lako)</label>
+        <input class="form-control" id="${prefix}BorrowerSign" name="borrower_sign" maxlength="80"
+          value="${val(a.borrower_sign)}" placeholder="Andika jina lako kama saini" required>
+        <div class="form-text">Lazima liwe kama jina lako lililo kwenye akaunti: <b>${esc(cust.name || "")}</b></div>
+      </div>
+
+      <div class="col-12"><hr class="my-1"><div class="form-section">Mdhamini</div></div>
+      <div class="col-md-4">
+        <label class="form-label">Jina la mdhamini</label>
+        <input class="form-control" value="${val(gname || "Hakuna kwenye profile")}" readonly disabled>
+        ${gname ? "" : `<div class="form-text text-warning"><a href="#/profile">Ongeza mdhamini kwenye profile</a> ili jina lithibitike.</div>`}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Simu ya mdhamini</label>
+        <input class="form-control" value="${val(gphone || "-")}" readonly disabled>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}GuarantorSign">Saini ya mdhamini (andika jina lake)</label>
+        <input class="form-control" id="${prefix}GuarantorSign" name="guarantor_sign" maxlength="80"
+          value="${val(a.guarantor_sign)}" placeholder="Andika jina la mdhamini kama saini" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="${prefix}GuarantorWitness">Jina la shahidi wa mdhamini</label>
+        <input class="form-control" id="${prefix}GuarantorWitness" name="guarantor_witness"
+          maxlength="80" value="${val(a.guarantor_witness)}" placeholder="Jina kamili la shahidi wa mdhamini" required>
+      </div>
+
+      <div class="col-12"><hr class="my-1"><div class="form-section">Dhamana ya mkataba</div></div>
+      <div class="col-md-6">
+        <label class="form-label" for="${prefix}Collateral1">Dhamana Na. 1 (kitu kinachowekwa dhamana)</label>
+        <input class="form-control" id="${prefix}Collateral1" name="collateral_1" maxlength="160"
+          value="${val(a.collateral_1)}" placeholder="Mfano: Pikipiki yenye namba ..." required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="${prefix}Collateral2">Dhamana Na. 2 (hiari)</label>
+        <input class="form-control" id="${prefix}Collateral2" name="collateral_2" maxlength="160"
+          value="${val(a.collateral_2)}" placeholder="Hiari">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="${prefix}Collateral3">Dhamana Na. 3 (hiari)</label>
+        <input class="form-control" id="${prefix}Collateral3" name="collateral_3" maxlength="160"
+          value="${val(a.collateral_3)}" placeholder="Hiari">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="${prefix}CollateralValue">Thamani ya dhamana (TZS)</label>
+        <input class="form-control" type="number" id="${prefix}CollateralValue" name="collateral_value"
+          min="1" value="${val(a.collateral_value)}" placeholder="Mfano: 500000" required>
+        <div class="form-text">Thamani iliyokubaliwa na pande zote.</div>
+      </div>
+
+      <div class="col-12">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="accept" id="${prefix}Accept" required>
+          <label class="form-check-label small" for="${prefix}Accept">
+            <b>Nakubali na kukubaliana</b> na masharti yote ya mkataba huu (vipindi a hadi f),
+            ikiwa ni pamoja na sheria za Jamhuri ya Muungano wa Tanzania.
+          </label>
+        </div>
+      </div>
+      <div class="col-12">
+        <details>
+          <summary class="text-muted small" style="cursor:pointer">Soma masharti (vipindi a - f)</summary>
+          <ol class="small text-muted mt-2 mb-0 ps-3">
+            <li class="mb-1"><b>MKOPAJI</b> amekopa fedha kiasi alichotaja hapo juu, na ameahidi
+              kulipa kiasi cha jumla ya mkopo pamoja na riba kwa muda uliowekwa.</li>
+            <li class="mb-1"><b>MKOPAJI</b> ana wajibu wa kumtafuta <b>MKOPESHAJI</b> wake mara
+              anapohitaji kurudisha deni lake, na si vinginevyo.</li>
+            <li class="mb-1"><b>MKOPAJI</b> ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
+            <li class="mb-1">Kwa kuweka saini <b>MKOPAJI</b> anakiri kukubaliana na utaratibu huu.</li>
+            <li class="mb-1">Kwamba <b>MKOPAJI</b> kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
+            <li class="mb-1">Kwamba mkataba huu unatafsiriwa na sheria za
+              <b>JAMHURI YA MUUNGANO WA TANZANIA</b>, na kwamba upande wowote utakaovunja
+              mkataba huu, hatua kali za kisheria zitachukuliwa dhidi yake.</li>
+            <li class="mb-1"><b>DHAMANA:</b> MKOPAJI anakiri kuweka dhamana kama hakikisho la
+              marejesho. Endapo atashindwa kurejesha mkopo wote pamoja na riba ndani ya miezi 3,
+              MKOPESHAJI atatoa notisi ya maandishi ya siku 14; baada ya hapo anaweza kuiuza
+              dhamana kwa bei ya soko (inayothibitishwa kwa tathmini au makubaliano ya pande mbili).
+              Fedha za mauzo zitachukua kiasi cha mkopo, riba halali na gharama za mauzo;
+              ziada itarudishwa kwa MKOPAJI ndani ya siku 7.</li>
+          </ol>
+        </details>
+      </div>`;
+  }
+
+  function contractValues(f) {
+    return {
+      p_principal: Number(f.principal.value),
+      p_months: Number(f.months.value),
+      p_purpose: f.purpose.value.trim(),
+      p_place: f.place.value.trim(),
+      p_signed_on: f.signed_on.value,
+      p_borrower_witness: f.borrower_witness.value.trim(),
+      p_borrower_sign: f.borrower_sign.value.trim(),
+      p_guarantor_sign: f.guarantor_sign.value.trim(),
+      p_guarantor_witness: f.guarantor_witness.value.trim(),
+      p_collateral_1: f.collateral_1.value.trim(),
+      p_collateral_2: f.collateral_2.value.trim(),
+      p_collateral_3: f.collateral_3.value.trim(),
+      p_collateral_value: Number(f.collateral_value.value)
+    };
+  }
+
+  function validateContract(f, c) {
+    const v = contractValues(f);
+    const norm = (s) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
+    if (!f.accept.checked) return "Kubali masharti ya mkataba kwanza.";
+    if (!Number.isFinite(v.p_principal) || v.p_principal < CFG.MIN_LOAN || v.p_principal > CFG.MAX_LOAN)
+      return `Kiasi kiwe kati ya ${tzs(CFG.MIN_LOAN)} na ${tzs(CFG.MAX_LOAN)}.`;
+    if (!Number.isInteger(v.p_months) || v.p_months < 1 || v.p_months > CFG.MAX_MONTHS)
+      return `Muda uwe miezi 1 hadi ${CFG.MAX_MONTHS}.`;
+    if (v.p_purpose.length < 3) return "Eleza kwa ufupi mkopo utatumika kwa nini.";
+    if (v.p_place.length < 3) return "Weka mahali ulipokazia mkataba.";
+    if (!v.p_signed_on) return "Weka tarehe ya kusaini.";
+    if (new Date(v.p_signed_on + "T00:00:00") > today())
+      return "Tarehe ya kusaini isizidi leo.";
+    if (v.p_borrower_witness.length < 3) return "Weka jina la shahidi wa mkopaji.";
+    if (v.p_borrower_sign.length < 2) return "Weka saini ya mkopaji.";
+    if (norm(v.p_borrower_sign) !== norm(c && c.name))
+      return `Saini ya mkopaji iwe kama jina lako: ${(c && c.name) || ""}.`;
+    if (v.p_guarantor_sign.length < 2) return "Weka saini ya mdhamini.";
+    if (c && c.guarantor_name && norm(v.p_guarantor_sign) !== norm(c.guarantor_name))
+      return `Saini ya mdhamini iwe kama jina la mdhamini: ${c.guarantor_name}.`;
+    if (v.p_guarantor_witness.length < 3) return "Weka jina la shahidi wa mdhamini.";
+    if (v.p_collateral_1.length < 3) return "Weka dhamana ya kwanza.";
+    if (!Number.isFinite(v.p_collateral_value) || v.p_collateral_value <= 0)
+      return "Weka thamani sahihi ya dhamana.";
+    return null;
+  }
+
+  function contractSectionHtml(loan, agr, cust, b) {
+    if (!agr) {
+      return `<div class="card p-3 mb-3"><h6><i class="bi bi-file-earmark-text"></i> Mkataba</h6>
+        <div class="alert alert-warning mb-0">Mkataba haujajazwa bado. Mteja anapaswa kujaza
+        taarifa za mkataba.</div></div>`;
+    }
+    const approved = loan.decision === "approved";
+    const gname = agr.guarantor || (cust && cust.guarantor_name) || "";
+    const gphone = agr.guarantor_phone || (cust && cust.guarantor_phone) || "";
+    const lastDue = approved && b && b.rows.length ? b.rows[b.rows.length - 1].due : null;
+    const money = approved ? `
+      <div class="row g-2 small mb-2">
+        <div class="col-md-4"><span class="text-muted">Riba:</span> <b>${tzs(b.interest)}</b></div>
+        <div class="col-md-4"><span class="text-muted">Jumla ya kulipa:</span> <b>${tzs(b.total)}</b></div>
+        <div class="col-md-4"><span class="text-muted">Kila mwezi:</span> <b>${tzs(b.installment)}</b></div>
+        <div class="col-md-4"><span class="text-muted">Mwisho wa kulipa:</span> <b>${fmtDate(lastDue)}</b></div>
+      </div>` : `
+      <div class="alert alert-info py-2 small mb-2">Riba, jumla ya kulipa na tarehe ya mwisho
+        vitawekwa na ofisi baada ya idhini.</div>`;
+    const collateral = [agr.collateral_1, agr.collateral_2, agr.collateral_3]
+      .map((x, i) => x ? `<div class="small"><span class="text-muted">Dhamana Na. ${i + 1}:</span>
+        ${esc(x)}</div>` : "").join("");
+    return `<div class="card p-3 mb-3">
+      <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+        <div><h6 class="mb-1"><i class="bi bi-file-earmark-text"></i> Mkataba wa mkopo #${loan.id}</h6>
+          <div class="text-muted small">Mahali: ${esc(agr.borrower_place || "-")} &middot;
+            Tarehe: ${fmtDate(agr.signed_on)}</div></div>
+        <button class="btn btn-sm btn-outline-secondary" data-print-contract>
+          <i class="bi bi-printer"></i> Chapisha mkataba</button>
+      </div>
+      <hr class="my-2">
+      <div class="row g-2 small">
+        <div class="col-md-6"><span class="text-muted">Mkopaji:</span>
+          <b>${esc((cust && cust.name) || "")}</b></div>
+        <div class="col-md-6"><span class="text-muted">Mdhamini:</span>
+          <b>${esc(gname || "-")}</b>${gphone ? ` (${esc(gphone)})` : ""}</div>
+        <div class="col-md-6"><span class="text-muted">Shahidi wa mkopaji:</span>
+          ${esc(agr.borrower_witness || "-")}</div>
+        <div class="col-md-6"><span class="text-muted">Shahidi wa mdhamini:</span>
+          ${esc(agr.guarantor_witness || "-")}</div>
+        <div class="col-12"><span class="text-muted">Matumizi:</span>
+          ${esc(loan.purpose || "-")}</div>
+      </div>
+      ${money}
+      ${collateral || `<div class="small text-muted">Dhamana: -</div>`}
+      <div class="small mt-2"><span class="text-muted">Thamani ya dhamana:</span>
+        <b>${tzs(agr.collateral_value || 0)}</b></div>
+      <details class="mt-2">
+        <summary class="text-muted small" style="cursor:pointer">Soma masharti (vipindi a - f)</summary>
+        <ol class="small text-muted mt-2 mb-0 ps-3">
+          <li class="mb-1"><b>MKOPAJI</b> amekopa fedha kiasi cha <b>${tzs(loan.principal)}</b>${approved
+            ? `, ambapo ameahidi kulipa fedha hizo kiasi cha <b>${tzs(b.total)}</b> kwa muda wa
+              <b>${loan.months} miezi</b>, ifikapo tarehe <b>${fmtDate(lastDue)}</b>`
+            : `, kwa muda wa <b>${loan.months} miezi</b>; riba, jumla ya kulipa na tarehe ya mwisho
+              vitawekwa na ofisi baada ya idhini`}.</li>
+          <li class="mb-1"><b>MKOPAJI</b> ana wajibu wa kumtafuta <b>MKOPESHAJI</b> wake mara
+            anapohitaji kurudisha deni lake, na si vinginevyo.</li>
+          <li class="mb-1"><b>MKOPAJI</b> ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
+          <li class="mb-1">Kwa kuweka saini <b>MKOPAJI</b> anakiri kukubaliana na utaratibu huu.</li>
+          <li class="mb-1">Kwamba <b>MKOPAJI</b> kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
+          <li class="mb-1">Kwamba mkataba huu unatafsiriwa na sheria za
+            <b>JAMHURI YA MUUNGANO WA TANZANIA</b>, na kwamba upande wowote utakaovunja
+            mkataba huu, hatua kali za kisheria zitachukuliwa dhidi yake.</li>
+          <li class="mb-1"><b>DHAMANA:</b> MKOPAJI anakiri kuweka dhamana kama hakikisho la
+            marejesho. Endapo atashindwa kurejesha mkopo wote pamoja na riba ndani ya miezi 3,
+            MKOPESHAJI atatoa notisi ya maandishi ya siku 14; baada ya hapo anaweza kuiuza
+            dhamana kwa bei ya soko (inayothibitishwa kwa tathmini au makubaliano ya pande mbili).
+            Fedha za mauzo zitachukua kiasi cha mkopo, riba halali na gharama za mauzo;
+            ziada itarudishwa kwa MKOPAJI ndani ya siku 7.</li>
+        </ol>
+      </details>
+    </div>`;
+  }
+
+  function contractEditHtml(loan, agr, c) {
+    return `<details class="card p-3 mb-3" ${loan.review_note ? "open" : ""}>
+      <summary class="fw-semibold" style="cursor:pointer"><i class="bi bi-pencil-square"></i>
+        Rekebisha mkataba</summary>
+      <p class="text-muted small mt-2 mb-2">Badilisha sehemu zilizoonyeshwa na ofisi, kisha
+        tuma tena. Ombi lako litabaki likisubiri ukaguzi.</p>
+      <form id="contractEditForm" class="row g-3">
+        ${contractFieldsHtml(c, loan, agr, "edit")}
+        <div class="col-12"><button class="btn btn-warning"><i class="bi bi-send"></i>
+          Tuma marekebisho</button></div>
+      </form>
+    </details>`;
+  }
+
+  function printContract(loan, agr, cust) {
+    if (!agr) return toast("Mkataba haujajazwa bado.", "warning");
+    const approved = loan.decision === "approved";
+    const b = buildLoan(loan, [], today());
+    const lastDue = approved && b.rows.length ? b.rows[b.rows.length - 1].due : null;
+    const gname = agr.guarantor || (cust && cust.guarantor_name) || "";
+    const gphone = agr.guarantor_phone || (cust && cust.guarantor_phone) || "";
+    const interest = approved ? tzs(b.interest) : "Itawekwa baada ya idhini";
+    const total = approved ? tzs(b.total) : "Itawekwa baada ya idhini";
+    const monthly = approved ? tzs(b.installment) : "Itawekwa baada ya idhini";
+    const repayBy = approved && lastDue ? fmtDate(lastDue) : "Itawekwa baada ya idhini";
+    const signedOn = agr.signed_on ? fmtDate(agr.signed_on) : "-";
+    const place = agr.borrower_place || "-";
+    const borrower = (cust && cust.name) || "";
+    const lender = agr.lender || "ZABURI YA 23 MICROFINANCE";
+    const html = `<!doctype html><html lang="sw"><head><meta charset="utf-8">
+      <title>Mkataba #${loan.id} | ZABURI YA 23 MICROFINANCE</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width:760px; margin:2rem auto; padding:1.5rem; color:#111; }
+        .brand { text-align:center; margin-bottom:.4rem; }
+        .brand em { font-size:.85rem; letter-spacing:.06em; color:#444; }
+        h1 { text-align:center; font-size:1.25rem; margin:0 0 .2rem; text-transform:uppercase; }
+        h2.section { font-size:1rem; text-transform:uppercase; border-bottom:1px solid #999;
+                     padding-bottom:.25rem; margin:1.6rem 0 .6rem; }
+        .sub { text-align:center; color:#555; font-size:.85rem; margin-bottom:1.4rem; }
+        p { line-height:1.75; text-align:justify; font-size:.94rem; margin:.7rem 0; }
+        .kv { width:100%; border-collapse:collapse; margin:.6rem 0 1rem; }
+        .kv td { padding:.45rem .6rem; border-bottom:1px dotted #bbb; font-size:.94rem; }
+        .kv td:last-child { text-align:right; font-weight:bold; white-space:nowrap; }
+        ol { font-size:.94rem; line-height:1.75; padding-left:1.4rem; }
+        ol li { margin-bottom:.5rem; }
+        .sign { width:100%; border-collapse:collapse; margin-top:1.6rem; font-size:.85rem; }
+        .sign th { border:1px solid #999; padding:.5rem; background:#f2f2f2; text-transform:uppercase; font-size:.72rem; }
+        .sign td { border:1px solid #999; padding:.55rem .5rem; height:74px; vertical-align:top; }
+        .sign .sig { font-style:italic; font-size:1.05rem; }
+        .note { font-size:.78rem; color:#555; margin-top:1.4rem; border-top:1px solid #ccc; padding-top:.6rem; }
+        button { display:block; margin:1.6rem auto 0; padding:.5rem 1.3rem; cursor:pointer; }
+        @media print { button { display:none; } body { margin:0; padding:0; } .sign td { height:96px; } }
+      </style></head><body>
+      <div class="brand"><em>ZABURI YA 23 MICROFINANCE</em></div>
+      <h1>Mkataba wa Kukopeshana Fedha kwa Riba</h1>
+      <div class="sub">Namba ya mkataba: AGR-${String(loan.id).padStart(5, "0")} &middot; Mkopo #${loan.id}</div>
+
+      <p>Mkataba huu umetiwa saini leo tarehe <b>${esc(signedOn)}</b> mahali <b>${esc(place)}</b>,
+        kwa hati ya <b>MKOPESHAJI</b> ambaye ni <b>${esc(lender)}</b>
+        (ninajitambulisha kama &ldquo;MKOPESHAJI&rdquo;)</p>
+
+      <p><b>NA</b></p>
+
+      <p>Kwa upande wa pili ndugu atafahamika kuwa <b>MKOPAJI</b> wa ${esc(lender)},
+        ambaye amekubaliwa kama ifuatavyo:</p>
+
+      <ol type="a">
+        <li>MKOPAJI amekopa fedha kiasi cha <b>${tzs(loan.principal)}</b>, ambapo ameahidi
+          kulipa fedha hizo kiasi cha <b>${esc(total)}</b> (riba ya ${esc(interest)}) kwa muda wa
+          <b>${loan.months} miezi</b>, ifikapo tarehe <b>${esc(repayBy)}</b>.</li>
+        <li>MKOPAJI ana wajibu wa kumtafuta MKOPESHAJI wake mara anapohitaji kurudisha deni lake,
+          na si vinginevyo.</li>
+        <li>MKOPAJI ana wajibu kuzingatia muda ulioandikwa kwenye makubaliano haya.</li>
+        <li>Kwa kuweka saini, MKOPAJI anakiri kukubaliana na utaratibu huu.</li>
+        <li>Kwamba MKOPAJI kwa hiari yake yeye mwenyewe ndiye aliyeamua kukopa.</li>
+        <li>Kwamba mkataba huu unatafsiriwa na sheria za JAMHURI YA MUUNGANO WA TANZANIA,
+          na kwamba upande wowote utakaovunja mkataba huu, hatua kali za kisheria
+          zitachukuliwa dhidi yake.</li>
+        <li><b>MDHAMINI</b>${gname ? ` <b>${esc(gname)}</b>` : ""} amesaini kama mdhamini
+          wa mkopo huu, na anakubali kuwajibika kuhakikisha deni hili linalipwa kwa wakati.</li>
+      </ol>
+
+      <table class="kv">
+        <tr><td>Kiasi kilichokopeshwa (principal)</td><td>${tzs(loan.principal)}</td></tr>
+        <tr><td>Riba</td><td>${esc(interest)}</td></tr>
+        <tr><td>Jumla ya kulipa</td><td>${esc(total)}</td></tr>
+        <tr><td>Muda wa kulipa</td><td>${loan.months} miezi</td></tr>
+        <tr><td>Malipo ya kila mwezi</td><td>${esc(monthly)}</td></tr>
+        <tr><td>Tarehe ya mwisho ya kulipa</td><td>${esc(repayBy)}</td></tr>
+        ${loan.purpose ? `<tr><td>Matumizi ya mkopo</td><td>${esc(loan.purpose)}</td></tr>` : ""}
+      </table>
+
+      <h2 class="section">Dhamana ya Mkataba</h2>
+      <p>Wahusika (MKOPESHAJI na MKOPAJI) wamekubaliana kuweka dhamana kama hakikisho la
+        marejesho ya mkopo huu kama ifuatavyo. MKOPAJI anakiri kuweka dhamana zifuatazo:</p>
+      <table class="kv">
+        <tr><td>Dhamana Na. 1</td><td>${esc(agr.collateral_1 || "—")}</td></tr>
+        ${agr.collateral_2 ? `<tr><td>Dhamana Na. 2</td><td>${esc(agr.collateral_2)}</td></tr>` : ""}
+        ${agr.collateral_3 ? `<tr><td>Dhamana Na. 3</td><td>${esc(agr.collateral_3)}</td></tr>` : ""}
+        <tr><td>Thamani ya dhamana</td><td>${tzs(agr.collateral_value || 0)}</td></tr>
+      </table>
+      <p>Endapo MKOPAJI atashindwa kurejesha mkopo wote pamoja na riba ndani ya miezi 3 kuanzia
+        tarehe ya mkataba huu, utaratibu ufuatao utafuatwa na MKOPESHAJI badala ya kuchukua mali
+        moja kwa moja:</p>
+      <ol type="i">
+        <li>MKOPESHAJI atatoa notisi ya maandishi ya siku 14 kwa MKOPAJI kumtaka alipe deni.</li>
+        <li>Baada ya notisi kuisha bila malipo, MKOPESHAJI atakuwa na haki ya kuiuza dhamana hiyo
+          kwa bei ya soko. Bei ya soko itathibitishwa kwa tathmini au makubaliano ya pande mbili.</li>
+        <li>Fedha zitakazopatikana kwa mauzo, MKOPESHAJI atachukua tu kiasi cha mkopo, riba halali
+          na gharama za mauzo. Kama kutabaki ziada, MKOPESHAJI atarudisha ziada hiyo kwa MKOPAJI
+          ndani ya siku 7.</li>
+      </ol>
+
+      <p>Wahusika wamekubaliana kama ilivyo hapo juu na kuweka saini zao kama ifuatavyo hapo chini.</p>
+
+      <table class="sign">
+        <thead><tr><th style="width:34%">Naibu</th><th style="width:33%">Jina</th><th>Sahihi</th></tr></thead>
+        <tbody>
+          <tr><td><b>MKOPESHAJI</b></td><td>${esc(lender)}</td>
+            <td class="sig">${esc(agr.lender_sign || "")}</td></tr>
+          <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>${esc(agr.lender_witness || "-")}</td><td></td></tr>
+          <tr><td><b>MKOPAJI</b></td><td>${esc(borrower)}</td>
+            <td class="sig">${esc(agr.borrower_sign || "")}</td></tr>
+          <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>${esc(agr.borrower_witness || "-")}</td><td></td></tr>
+          <tr><td><b>MDHAMINI</b></td><td>${esc(gname || "-")}${gphone ? ` (${esc(gphone)})` : ""}</td>
+            <td class="sig">${esc(agr.guarantor_sign || "")}</td></tr>
+          <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>${esc(agr.guarantor_witness || "-")}</td><td></td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">Mkataba huu umetengenezwa na mfumo wa ZABURI YA 23 MICROFINANCE.
+        Sahihi za MKOPESHAJI na SHAHIDI WA MKOPESHAJI zinaweza kuongezwa mkononi baada ya kupeleka
+        nakala halisi.${loan.decision === "pending" ? " Hali: Inasubiri idhini ya ofisi." : ""}${loan.decision === "rejected" ? " Hali: Ombi limekataliwa." : ""}</div>
+
+      <p class="note">Tumia Ctrl+P (au menyu ya kivinjari) kuchapisha au kuhifadhi PDF.</p>
+      </body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return toast("Ruhusu pop-up ili kuchapisha mkataba.", "danger");
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { try { w.print(); } catch (_) {} }, 500);
+  }
+
   async function applyView(v) {
     const c = state.customer;
     if (!c || !c.profile_done) {
@@ -678,28 +1145,32 @@
       return;
     }
     v.innerHTML = `
-      <h3 class="mb-3">Omba mkopo</h3>
-      <div class="card p-4" style="max-width:560px">
-        <form id="applyForm">
-          <div class="mb-3"><label class="form-label">Kiasi (TZS)</label>
-            <input class="form-control form-control-lg" type="number" name="principal"
-              min="${CFG.MIN_LOAN}" max="${CFG.MAX_LOAN}" placeholder="${CFG.MIN_LOAN}" required>
-            <div class="form-text">Kati ya ${tzs(CFG.MIN_LOAN)} na ${tzs(CFG.MAX_LOAN)}.</div></div>
-          <div class="mb-3"><label class="form-label">Muda (miezi)</label>
-            <input class="form-control form-control-lg" type="number" name="months" min="1" max="${CFG.MAX_MONTHS}" placeholder="6" required></div>
-          <div class="mb-3"><label class="form-label">Mkopo utatumika kwa nini?</label>
-            <textarea class="form-control" name="purpose" maxlength="200" required></textarea></div>
-          <button class="btn btn-success btn-lg w-100">Tuma ombi</button>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">Omba mkopo</h3>
+        <a href="#/" class="btn btn-sm btn-outline-secondary">Rudi</a>
+      </div>
+      <div class="card p-4">
+        <div class="text-center mb-3 pb-2 border-bottom">
+          <div class="text-muted small" style="letter-spacing:.05em">ZABURI YA 23 MICROFINANCE</div>
+          <h5 class="mb-1">MKATABA WA KUKOPESHANA FEDHA KWA RIBA</h5>
+          <div class="text-muted small">Jaza taarifa zote za mkataba kabla ya kutuma ombi.</div>
+        </div>
+        <form id="applyForm" class="row g-3">
+          ${contractFieldsHtml(c, null, null, "app")}
+          <div class="col-12"><button class="btn btn-success btn-lg w-100">
+            <i class="bi bi-send"></i> Tuma ombi na mkataba</button></div>
         </form>
       </div>`;
     document.getElementById("applyForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = e.target;
-      const { error } = await sb.rpc("apply_loan", {
-        p_principal: +f.principal.value, p_months: +f.months.value, p_purpose: f.purpose.value.trim()
-      });
+      const err = validateContract(f, c);
+      if (err) return toast(err, "danger");
+      const vals = contractValues(f);
+      const { error } = await sb.rpc("apply_loan_contract", vals);
       if (error) return toast(error.message, "danger");
-      toast("Ombi lako limepokelewa. Utajulishwa uamuzi ukitolewa.", "success");
+      f.reset();
+      toast("Ombi na mkataba vimepokelewa. Utajulishwa uamuzi ukitolewa.", "success");
       location.hash = "#/";
     });
   }
@@ -900,7 +1371,9 @@
   async function loanDetailView(v, lid) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
     const isAdmin = state.profile.role === "admin";
-    const { data: loan, error: loanErr } = await sb.from("loans").select("*").eq("id", lid).maybeSingle();
+    const { data: loan, error: loanErr } = await sb.from("loans")
+      .select("*, customers(name, phone, guarantor_name, guarantor_phone)")
+      .eq("id", lid).maybeSingle();
     if (loanErr) return errorView(v, loanErr);
     if (!loan) { v.innerHTML = `<div class="alert alert-warning">Mkopo haupatikani.</div>`; return; }
     const pays = await paymentsFor(lid);
@@ -908,6 +1381,10 @@
     if (agrErr) return errorView(v, agrErr);
     const b = buildLoan(loan, pays, today());
     const contractDone = !!(agr && agr.accepted && (agr.lender_sign || "").trim());
+    const hasContract = !!(agr && agr.accepted && (agr.borrower_sign || "").trim());
+    const cust = loan.customers || (isAdmin ? {} : (state.customer || {}));
+    const isOwner = !isAdmin && state.customer &&
+      Number(loan.customer_id) === Number(state.customer.id);
 
     let payForm = "";
     if (isAdmin && loan.decision === "approved" && b.balance > 0) {
@@ -915,7 +1392,7 @@
         <div class="card p-3 mb-3"><h6>Rekodi malipo</h6>
         <form id="payForm" class="row g-2">
           <div class="col-6"><input class="form-control" type="number" min="1" max="${b.balance}" name="amount" placeholder="Kiasi" required></div>
-          <div class="col-6"><input class="form-control" type="date" name="paid_on" value="${new Date().toISOString().slice(0, 10)}" required></div>
+          <div class="col-6"><input class="form-control" type="date" name="paid_on" value="${localDate()}" required></div>
           <div class="col-6"><select class="form-select" name="method">${METHODS.map((m) => `<option>${esc(m)}</option>`).join("")}</select></div>
           <div class="col-6"><input class="form-control" name="note" placeholder="Maelezo (hiari)" maxlength="200"></div>
           <div class="col-12"><button class="btn btn-success w-100">Hifadhi malipo</button></div>
@@ -955,16 +1432,49 @@
       }
     }
 
+    let reviewCard = "";
+    if (isAdmin && loan.decision === "pending") {
+      reviewCard = `<div class="card p-3 mb-3">
+        <h6><i class="bi bi-clipboard-check"></i> Ukaguzi wa mkataba</h6>
+        ${!hasContract ? `<div class="alert alert-warning py-2 small">Mteja hajajaza mkataba bado.
+          Tuma ujumbe wa kumtaka ajaze.</div>` : ""}
+        <form id="reviewForm">
+          <div class="mb-2"><label class="form-label small">Ujumbe kwa mteja (marekebisho)</label>
+            <textarea class="form-control" name="note" rows="2" maxlength="300"
+              placeholder="Eleza sehemu zinazohitaji kurekebishwa...">${esc(loan.review_note || "")}</textarea></div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-warning" type="submit"><i class="bi bi-send"></i>
+              Tuma ujumbe wa marekebisho</button>
+            <button class="btn btn-success" type="button" id="approveLoanBtn">
+              <i class="bi bi-check-lg"></i> Idhinisha</button>
+            <button class="btn btn-outline-danger" type="button" id="rejectLoanBtn">
+              <i class="bi bi-x-lg"></i> Kataa</button>
+          </div>
+        </form>
+      </div>`;
+    }
+
+    const statusAlert = loan.decision === "rejected"
+      ? `<div class="alert alert-danger">Ombi limekataliwa. ${esc(loan.review_note || "")}</div>`
+      : (loan.decision === "pending"
+        ? (loan.review_note
+          ? `<div class="alert alert-warning"><b>Ujumbe kutoka ofisi:</b> ${esc(loan.review_note)}</div>`
+          : `<div class="alert alert-info">Ombi linasubiri ukaguzi wa ofisi.</div>`)
+        : "");
+
     v.innerHTML = `
       <a href="#/" class="text-decoration-none">&larr; Rudi</a>
-      <div class="d-flex justify-content-between align-items-center my-3">
+      <div class="d-flex justify-content-between align-items-center my-3 gap-2 flex-wrap">
         <h3 class="mb-0">Mkopo #${loan.id}
           <span class="badge ${badge(loan.decision === "approved" ? b.status : loan.decision)}">
             ${statusTxt(loan.decision === "approved" ? b.status : loan.decision)}</span></h3>
-        ${loan.decision === "approved" && contractDone ? `<button class="btn btn-outline-secondary btn-sm" id="printLoanBtn"><i class="bi bi-printer"></i> Chapisha</button>` : ""}
+        ${agr ? `<button class="btn btn-outline-secondary btn-sm" id="printLoanBtn">
+          <i class="bi bi-printer"></i> Chapisha mkataba</button>` : ""}
       </div>
-      ${loan.decision === "rejected" ? `<div class="alert alert-danger">Ombi limekataliwa. ${esc(loan.review_note || "")}</div>` : ""}
-      ${loan.decision === "pending" ? `<div class="alert alert-info">Ombi linasubiri ukaguzi wa ofisi.</div>` : ""}
+      ${statusAlert}
+      ${contractSectionHtml(loan, agr, cust, b)}
+      ${isOwner && loan.decision === "pending" ? contractEditHtml(loan, agr, cust) : ""}
+      ${reviewCard}
       ${loan.decision === "approved" ? `
       <div class="row g-3 mb-3">
         ${stat("Kiasi", tzs(loan.principal))}
@@ -978,6 +1488,7 @@
         b.nextDue ? `<div class="alert alert-info">Malipo yanayofuata: <b>${fmtDate(b.nextDue.due)}</b> (${tzs(b.nextDue.amount - b.nextDue.paid)})</div>` : ""}
       ` : ""}
       ${signBlock}
+      ${loan.decision === "approved" ? `
       <div class="row g-3">
         <div class="col-lg-7"><div class="card p-3"><h6>Ratiba ya malipo</h6>
           <div class="table-responsive"><table class="table table-sm align-middle mb-0">
@@ -987,10 +1498,12 @@
           <div class="card p-3"><h6>Historia ya malipo</h6>
             <table class="table table-sm mb-0"><thead><tr><th>Tarehe</th><th>Kiasi</th><th>Njia</th><th>Maelezo</th></tr></thead>
             <tbody>${payRows}</tbody></table></div></div>
-      </div>`;
+      </div>` : ""}`;
 
     const pb = document.getElementById("printLoanBtn");
-    if (pb) pb.addEventListener("click", () => window.print());
+    if (pb) pb.addEventListener("click", () => printContract(loan, agr, cust));
+    v.querySelectorAll("[data-print-contract]").forEach((btn) =>
+      btn.addEventListener("click", () => printContract(loan, agr, cust)));
 
     const pf = document.getElementById("payForm");
     if (pf) pf.addEventListener("submit", async (e) => {
@@ -1018,6 +1531,33 @@
         p_witness: f.witness.value.trim() });
       if (error) return toast(error.message, "danger");
       toast("Saini ya mkopeshaji imehifadhiwa.", "success"); loanDetailView(v, lid);
+    });
+
+    const rf = document.getElementById("reviewForm");
+    if (rf) rf.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const note = rf.note.value.trim();
+      if (note.length < 3) return toast("Andika ujumbe wa marekebisho.", "danger");
+      const { error } = await sb.rpc("request_loan_changes", { p_loan_id: lid, p_note: note });
+      if (error) return toast(error.message, "danger");
+      toast("Ujumbe umetumwa kwa mteja.", "success");
+      loanDetailView(v, lid);
+    });
+    const ab = document.getElementById("approveLoanBtn");
+    if (ab) ab.addEventListener("click", () => approveDialog(v, lid, () => loanDetailView(v, lid)));
+    const rb = document.getElementById("rejectLoanBtn");
+    if (rb) rb.addEventListener("click", () => rejectLoan(v, lid, () => loanDetailView(v, lid)));
+
+    const ef = document.getElementById("contractEditForm");
+    if (ef) ef.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = validateContract(ef, cust);
+      if (err) return toast(err, "danger");
+      const vals = contractValues(ef);
+      const { error } = await sb.rpc("resubmit_loan_contract", { p_loan_id: lid, ...vals });
+      if (error) return toast(error.message, "danger");
+      toast("Marekebisho yametumwa. Ombi linasubiri ukaguzi.", "success");
+      loanDetailView(v, lid);
     });
   }
 
@@ -1126,11 +1666,14 @@
 
   async function applicationsView(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
-    const { data, error } = await sb.from("loans")
-      .select("*, customers(name, phone)")
-      .order("id", { ascending: false });
-    if (error) return errorView(v, error);
-    const all = data || [];
+    const [loansRes, agrRes] = await Promise.all([
+      sb.from("loans").select("*, customers(name, phone)").order("id", { ascending: false }),
+      sb.from("agreements").select("loan_id, accepted, borrower_sign, signed_on")
+    ]);
+    if (loansRes.error) return errorView(v, loansRes.error);
+    if (agrRes.error) return errorView(v, agrRes.error);
+    const all = loansRes.data || [];
+    const agrByLoan = new Map((agrRes.data || []).map((a) => [a.loan_id, a]));
     const filters = [
       ["all", "Zote", all.length],
       ["pending", "Zinasubiri", all.filter((l) => l.decision === "pending").length],
@@ -1140,6 +1683,8 @@
     const rows = all.length ? all.map((l) => {
       const name = l.customers ? l.customers.name : "";
       const phone = l.customers ? l.customers.phone : "";
+      const ag = agrByLoan.get(l.id);
+      const hasContract = !!(ag && ag.accepted && (ag.borrower_sign || "").trim());
       return `<div class="card p-3 mb-2">
         <div class="d-flex flex-wrap justify-content-between gap-2">
           <div>
@@ -1149,12 +1694,18 @@
             <div class="small">Mkopo #${l.id} &middot; ${tzs(l.principal)} / miezi ${l.months}
               ${l.created_at ? " &middot; " + fmtDate(l.created_at) : ""}</div>
             <div class="small text-muted">${esc(l.purpose || "")}</div>
-            ${l.review_note ? `<div class="small text-danger">Sababu: ${esc(l.review_note)}</div>` : ""}
+            <div class="small ${hasContract ? "text-success" : "text-warning"}">
+              <i class="bi bi-file-earmark-text"></i>
+              ${hasContract ? "Mkataba umejazwa" : "Mkataba haujajazwa"}
+              ${ag && ag.signed_on ? ` &middot; ${fmtDate(ag.signed_on)}` : ""}</div>
+            ${l.review_note ? `<div class="small text-danger">${l.decision === "pending" ? "Ujumbe" : "Sababu"}:
+              ${esc(l.review_note)}</div>` : ""}
           </div>
           <div class="d-flex gap-2 align-items-center flex-wrap">
             ${l.decision === "pending" ? `
               <button class="btn btn-sm btn-success" data-approve="${l.id}">Idhinisha</button>
-              <button class="btn btn-sm btn-outline-danger" data-reject="${l.id}">Kataa</button>` : ""}
+              <button class="btn btn-sm btn-outline-danger" data-reject="${l.id}">Kataa</button>
+              <button class="btn btn-sm btn-outline-warning" data-revise="${l.id}">Rekebisha</button>` : ""}
             <a class="btn btn-sm btn-outline-primary" href="#/loan/${l.id}">Fungua</a>
           </div>
         </div></div>`;
@@ -1181,27 +1732,33 @@
 
     v.querySelectorAll("[data-approve]").forEach((b) =>
       b.addEventListener("click", () => approveDialog(v, +b.dataset.approve)));
-    v.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", async () => {
-      const note = (prompt("Sababu ya kukataa (hiari):") || "").slice(0, 300);
-      const { error } = await sb.rpc("decide_loan", {
-        p_loan_id: +b.dataset.reject, p_action: "reject",
-        p_rate: null, p_months: null, p_start: null, p_note: note
+    v.querySelectorAll("[data-reject]").forEach((b) =>
+      b.addEventListener("click", () => rejectLoan(v, +b.dataset.reject, () => applicationsView(v))));
+    v.querySelectorAll("[data-revise]").forEach((b) => b.addEventListener("click", async () => {
+      const note = (prompt("Ujumbe kwa mteja: eleza sehemu zinazohitaji kurekebishwa:") || "").trim();
+      if (!note) return;
+      const { error } = await sb.rpc("request_loan_changes", {
+        p_loan_id: +b.dataset.revise, p_note: note
       });
       if (error) return toast(error.message, "danger");
-      toast("Ombi limekataliwa.", "warning");
+      toast("Ujumbe umetumwa kwa mteja.", "success");
       applicationsView(v);
     }));
   }
 
-  async function approveDialog(v, lid) {
+  async function approveDialog(v, lid, onDone) {
     const { data: loan } = await sb.from("loans").select("*").eq("id", lid).maybeSingle();
     if (!loan) return toast("Mkopo haupatikani.", "danger");
+    const { data: agr } = await sb.from("agreements")
+      .select("accepted, borrower_sign").eq("loan_id", lid).maybeSingle();
+    const hasContract = !!(agr && agr.accepted && (agr.borrower_sign || "").trim());
+    if (!hasContract && !confirm("Mkataba haujajazwa. Unaidhinisha ombi bila mkataba?")) return;
     const rate = prompt(`Riba (%/mwezi) kwa mkopo #${lid}:`, "12");
     if (rate === null) return;
     const rateNum = Number(String(rate).trim());
     if (!Number.isFinite(rateNum) || rateNum < 0 || rateNum > 100)
       return toast("Riba iwe kati ya 0 na 100.", "danger");
-    const startRaw = prompt("Tarehe ya kuanza (YYYY-MM-DD):", new Date().toISOString().slice(0, 10));
+    const startRaw = prompt("Tarehe ya kuanza (YYYY-MM-DD):", localDate());
     if (startRaw === null) return;
     const start = startRaw.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start))
@@ -1210,7 +1767,19 @@
       p_loan_id: lid, p_action: "approve", p_rate: rateNum, p_months: loan.months, p_start: start, p_note: ""
     });
     if (error) return toast(error.message, "danger");
-    toast("Ombi limeidhinishwa.", "success"); applicationsView(v);
+    toast("Ombi limeidhinishwa.", "success");
+    if (onDone) onDone(); else applicationsView(v);
+  }
+
+  async function rejectLoan(v, lid, onDone) {
+    const note = (prompt("Sababu ya kukataa (hiari):") || "").slice(0, 300);
+    const { error } = await sb.rpc("decide_loan", {
+      p_loan_id: lid, p_action: "reject",
+      p_rate: null, p_months: null, p_start: null, p_note: note
+    });
+    if (error) return toast(error.message, "danger");
+    toast("Ombi limekataliwa.", "warning");
+    if (onDone) onDone(); else applicationsView(v);
   }
 
   async function customersView(v) {

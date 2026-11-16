@@ -13,7 +13,7 @@ Kuna matoleo mawili — **si data moja**:
 > **Hali ya sasa (2026-11-14):** migrations zimepandishwa, Edge Functions `login` na
 > `admin-reset-password` zime-deploy, na mfumo rasmi uko
 > https://richardisaya522-arch.github.io/Loan-Management-System/.
-> Admin: `officiallytony520@gmail.com` (namba `0700000000`).
+> Admin: `officiallytony520@gmail.com` (namba `0750851093`).
 
 ---
 
@@ -58,10 +58,10 @@ Fungua http://127.0.0.1:5000
 
 ### 4. Unda admin
 - Fungua app, **Jisajili** kwa barua pepe halisi + namba ya simu unayotaka kuwa admin
-  (mfano `officiallytony520@gmail.com` / `0700000000`).
+  (mfano `officiallytony520@gmail.com` / `0750851093`).
 - Kisha kwenye **SQL Editor** endesha:
   ```sql
-  update public.profiles set role = 'admin' where username = '0700000000';
+  update public.profiles set role = 'admin' where username = '0750851093';
   ```
 - Ingia tena — utaona menu za ofisi (Maombi, Wateja, Mikopo, Malipo, Nakala, Kumbukumbu).
 

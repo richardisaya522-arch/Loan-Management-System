@@ -27,7 +27,7 @@ inayohost kwenye **GitHub Pages**.
   - `20261115120000_loan_contract_application`
 - **Auth config (remote):** `mailer_autoconfirm = true` (Confirm email OFF),
   `security_captcha_enabled = false`, `site_url` + `uri_allow_list` = Pages URL.
-- **Admin:** `officiallytony520@gmail.com` (`role = admin`, namba `0700000000`).
+- **Admin:** `officiallytony520@gmail.com` (`role = admin`, namba `0750851093`).
   Password imebadilishwa na inatumika pia kuingia kwa simu. Usiweke password kwenye repo.
 - **GitHub Pages:** https://richardisaya522-arch.github.io/Loan-Management-System/ (HTTP 200).
 
@@ -154,6 +154,9 @@ inayohost kwenye **GitHub Pages**.
   inaonyesha "Muda (EAT)"; tarehe za `created_at` na jina la faili la nakala ni za EAT.
 - `today()` na `localDate()` zinatokana na tarehe ya Tanzania, si saa za browser.
 - Cache-bust: `app.js?v=20261116`.
+- **Namba ya admin:** `0700000000` → `0750851093` (profiles.username, customers.phone,
+  auth metadata); audit entry `admin_phone_change` imeongezwa. Login kwa simu mpya
+  inafuata `customers.phone` → auth email.
 
 ## Inayofuata
 1. **Imekamilika:** `docs/` imepushwa `main` (git iko safi, ahead=0/behind=0).

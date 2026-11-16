@@ -3,7 +3,7 @@
 > Faili la kuendeleza kazi. Sasisha kila kikao.
 
 ## Tarehe ya mwisho
-2026-11-14
+2026-11-16
 
 ## Lengo
 Mfumo wa kukopesha (ZABURI YA 23 MICROFINANCE). Lengo la sasa: **app tuli (HTML/JS) + Supabase**
@@ -149,9 +149,14 @@ inayohost kwenye **GitHub Pages**.
 - **Supabase CLI:** `login` + `link --project-ref ghxahscpxobuoorgyedn` zimefanyika;
   migration imepandishwa. **Bado:** deploy `docs/` kwa GitHub Pages.
 
+### 2026-11-16 - Saa za Tanzania (EAT)
+- `docs/app.js` inatumia **Africa/Nairobi (EAT, UTC+3)** kwa muda: Kumbukumbu (`audit`)
+  inaonyesha "Muda (EAT)"; tarehe za `created_at` na jina la faili la nakala ni za EAT.
+- `today()` na `localDate()` zinatokana na tarehe ya Tanzania, si saa za browser.
+- Cache-bust: `app.js?v=20261116`.
+
 ## Inayofuata
-1. **Muhimu:** deploy `docs/` (commit + push) ili mkataba mpya na auto-lock ya dakika 10
-   vifikie GitHub Pages.
+1. **Imekamilika:** `docs/` imepushwa `main` (git iko safi, ahead=0/behind=0).
 2. **Muhimu:** weka `RESEND_API_KEY` + `EMAIL_FROM` (Resend) kwenye Supabase secrets
    ili email ya password ya muda itumike; bila hiyo admin anatumia **Copy**.
 3. Weka custom SMTP (Resend/Brevo/SendGrid) kwenye Supabase Auth kwa reset emails za

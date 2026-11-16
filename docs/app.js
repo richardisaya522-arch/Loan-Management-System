@@ -53,11 +53,32 @@
       return "Changanya herufi pamoja na nambari au alama.";
     return null;
   }
+  const TZ = "Africa/Nairobi"; // Saa za Tanzania (EAT, UTC+3)
   const fmtDate = (d) => {
     if (!d) return "-";
-    const dt = (typeof d === "string") ? new Date(d.length <= 10 ? d + "T00:00:00" : d) : d;
-    return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const dateOnly = typeof d === "string" && d.length <= 10;
+    const dt = (typeof d === "string") ? new Date(dateOnly ? d + "T00:00:00" : d) : d;
+    if (isNaN(dt)) return "-";
+    const opts = { day: "2-digit", month: "short", year: "numeric" };
+    if (!dateOnly) opts.timeZone = TZ;
+    return dt.toLocaleDateString("en-GB", opts);
   };
+  const fmtDateTime = (d) => {
+    if (!d) return "-";
+    const dt = new Date(d);
+    if (isNaN(dt)) return "-";
+    return dt.toLocaleString("en-GB", {
+      timeZone: TZ, day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hour12: false
+    });
+  };
+  function tzDateKey(d) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(d || new Date());
+    const get = (t) => (parts.find((p) => p.type === t) || {}).value || "";
+    return `${get("year")}-${get("month")}-${get("day")}`;
+  }
   function addMonths(dateStr, n) {
     const d = new Date(dateStr + "T00:00:00");
     const day = d.getDate(), y = d.getFullYear(), m = d.getMonth() + n;
@@ -102,11 +123,8 @@
   let idleBound = false;
   let idleLocking = false;
   let lastActivityAt = 0;
-  const today = () => new Date(new Date().toDateString());
-  const localDate = () => {
-    const d = new Date();
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  };
+  const today = () => new Date(tzDateKey() + "T00:00:00");
+  const localDate = () => tzDateKey();
 
   function resetIdleTimer() {
     clearTimeout(idleTimer);
@@ -1621,7 +1639,7 @@
     }));
     const ok = results.filter((r) => !r.error);
     results.filter((r) => r.error).forEach((r) => console.error(r.t, r.error));
-    const day = new Date().toISOString().slice(0, 10);
+    const day = tzDateKey();
 
     v.innerHTML = `
       <h3 class="mb-3">Nakala rudufu</h3>
@@ -1887,9 +1905,9 @@
     const { data, error } = await sb.from("audit").select("*").order("id", { ascending: false }).limit(300);
     if (error) return errorView(v, error);
     v.innerHTML = `<h3 class="mb-3">Kumbukumbu</h3><div class="card"><div class="table-responsive">
-      <table class="table table-sm align-middle mb-0"><thead><tr><th>#</th><th>Muda</th><th>Mtumiaji</th>
+      <table class="table table-sm align-middle mb-0"><thead><tr><th>#</th><th>Muda (EAT)</th><th>Mtumiaji</th>
       <th>Kitendo</th><th>Lengo</th><th>Maelezo</th></tr></thead>
-      <tbody>${(data || []).map((a) => `<tr><td>${a.id}</td><td class="text-nowrap">${esc(a.created_at)}</td>
+      <tbody>${(data || []).map((a) => `<tr><td>${a.id}</td><td class="text-nowrap">${esc(fmtDateTime(a.created_at))}</td>
         <td>${esc(a.actor || "-")}</td><td><code>${esc(a.action)}</code></td>
         <td>${esc(a.target || "-")}</td><td>${esc(a.details || "-")}</td></tr>`).join("") ||
         `<tr><td colspan="6" class="text-center text-muted">Hakuna kumbukumbu.</td></tr>`}</tbody>

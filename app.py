@@ -111,12 +111,18 @@ CREATE TABLE IF NOT EXISTS agreements(
   loan_id INTEGER NOT NULL UNIQUE REFERENCES loans(id),
   place TEXT, signed_on TEXT, purpose TEXT,
   principal INTEGER, interest INTEGER, total INTEGER, period_months INTEGER, repay_by TEXT,
-  borrower TEXT, borrower_witness TEXT, borrower_sign TEXT,
-  lender TEXT, lender_witness TEXT, lender_sign TEXT,
+  borrower TEXT, borrower_witness TEXT, borrower_witness_sign TEXT, borrower_sign TEXT,
+  lender TEXT, lender_witness TEXT, lender_witness_sign TEXT, lender_sign TEXT,
   guarantor TEXT, guarantor_phone TEXT, guarantor_sign TEXT, guarantor_witness TEXT,
+  guarantor_witness_sign TEXT,
   collateral_1 TEXT, collateral_2 TEXT, collateral_3 TEXT, collateral_value INTEGER,
   accepted INTEGER NOT NULL DEFAULT 0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS settings(
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  lender_name TEXT NOT NULL, lender_witness TEXT,
+  lender_witness_sign TEXT, lender_sign TEXT,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS audit(
   id INTEGER PRIMARY KEY, actor TEXT, action TEXT NOT NULL,
   target TEXT, details TEXT, ip TEXT,
@@ -134,6 +140,8 @@ MIGRATIONS = {  # kwa database ya zamani isiyo na safu hizi
               ("review_note", "TEXT"), ("applied_at", "TEXT")],
     "agreements": [("guarantor", "TEXT"), ("guarantor_phone", "TEXT"),
                    ("guarantor_sign", "TEXT"), ("guarantor_witness", "TEXT"),
+                   ("borrower_witness_sign", "TEXT"), ("lender_witness_sign", "TEXT"),
+                   ("guarantor_witness_sign", "TEXT"),
                    ("collateral_1", "TEXT"), ("collateral_2", "TEXT"),
                    ("collateral_3", "TEXT"), ("collateral_value", "INTEGER")],
 }
@@ -254,6 +262,9 @@ def init_db():
             db.execute("UPDATE users SET must_change_password=1 WHERE id=?", (u[0],))
             print("ONYO: admin bado anatumia password ya kawaida. "
                   "Atalazimika kuibadilisha akiingia.")
+    if not db.execute("SELECT 1 FROM settings WHERE id=1").fetchone():
+        db.execute("""INSERT INTO settings(id, lender_name, lender_witness,
+                      lender_witness_sign, lender_sign) VALUES(1, ?, '', '', '')""", (LENDER,))
     db.execute("UPDATE payments SET method='Cash' WHERE method='Taslimu'")   # rudisha hali ya awali
     db.commit()
     db.close()
@@ -479,6 +490,61 @@ def audit(action, target="", details=""):
         pass   # kumbukumbu isizuie kitendo kikuu
 
 
+# ---------- Uandishi wa majina na saini ----------
+def cap_text(value, limit=None):
+    """Kila neno lianze kwa herufi kubwa (Title Case) kabla ya kuhifadhiwa."""
+    s = re.sub(r"\s+", " ", str(value or "").strip())
+    s = re.sub(r"(?<!\w)\w", lambda m: m.group().upper(), s)
+    return s[:limit] if limit else s
+
+
+def sign_style(value):
+    """Saini kwa mtindo wa A.C. mwanjoka: herufi za mwanzo + jina la mwisho."""
+    s = cap_text(value)
+    if not s:
+        return ""
+    tokens = re.findall(r"[A-Za-z]\.|[^\s]+", s)
+    initial = lambda t: bool(re.fullmatch(r"[A-Za-z]\.", t))
+    initials = [t[0].upper() for t in tokens if initial(t)]
+    words = [t for t in tokens if not initial(t)]
+    if not initials and len(words) > 1:
+        initials = [w[0] for w in words[:-1] if w]
+    surname = words[-1] if words else ""
+    return ("".join(i + "." for i in initials) + " " + surname.lower()).strip()
+
+
+def sig_matches(sign, name):
+    """Kubali jina kamili au saini iliyosawazishwa kwa mtindo wa A.C. mwanjoka."""
+    norm = lambda v: re.sub(r"\s+", " ", str(v or "").strip()).lower()
+    return bool(name) and norm(sign) in (norm(name), norm(sign_style(name)))
+
+
+def lender_settings(db):
+    """Taarifa za mkopeshaji zinazotumika kwenye mikataba yote."""
+    row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
+    if not row:
+        return dict(lender_name=LENDER, lender_witness="", lender_witness_sign="",
+                    lender_sign="", updated_at="")
+    return dict(row)
+
+
+def save_lender_settings(db, values):
+    """Hifadhi taarifa za mkopeshaji na uzisasisha kwenye mikataba yote iliyopo."""
+    db.execute("""INSERT INTO settings(id, lender_name, lender_witness,
+                  lender_witness_sign, lender_sign, updated_at)
+                  VALUES(1,?,?,?,?,CURRENT_TIMESTAMP)
+                  ON CONFLICT(id) DO UPDATE SET lender_name=excluded.lender_name,
+                  lender_witness=excluded.lender_witness,
+                  lender_witness_sign=excluded.lender_witness_sign,
+                  lender_sign=excluded.lender_sign, updated_at=CURRENT_TIMESTAMP""",
+               (values["lender_name"], values["lender_witness"],
+                values["lender_witness_sign"], values["lender_sign"]))
+    db.execute("""UPDATE agreements SET lender=?, lender_witness=?,
+                  lender_witness_sign=?, lender_sign=?""",
+               (values["lender_name"], values["lender_witness"],
+                values["lender_witness_sign"], values["lender_sign"]))
+
+
 # ---------- Usajili na login ----------
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -487,7 +553,7 @@ def register():
     e = {}
     if request.method == "POST":
         f = request.form
-        name, phone = f.get("name", "").strip()[:120], norm_phone(f.get("phone", ""))
+        name, phone = cap_text(f.get("name", ""), 120), norm_phone(f.get("phone", ""))
         email = f.get("email", "").strip()[:160]
         pw, pw2 = f.get("password", ""), f.get("password2", "")
         if len(name) < 3:
@@ -696,7 +762,8 @@ def profile():
         keys = ("name", "phone", "email", "address", "occupation",
                 "guarantor_name", "guarantor_phone", "guarantor_address",
                 "bank_name", "bank_account")
-        f = {k: request.form.get(k, "").strip() for k in keys}
+        f = {k: (request.form.get(k, "").strip() if k == "email"
+                 else cap_text(request.form.get(k, ""), 160)) for k in keys}
         f["phone"], f["guarantor_phone"] = norm_phone(f["phone"]), norm_phone(f["guarantor_phone"])
         if len(f["name"].split()) < 3:
             e["name"] = "Andika majina matatu kamili. Mfano: Amina Juma Mohamed."
@@ -775,7 +842,7 @@ def apply():
                        "kabla ya kuomba mkopo mwingine.")
     if request.method == "POST" and not blocked:
         amount, months = to_int(request.form.get("principal")), to_int(request.form.get("months"))
-        purpose = request.form.get("purpose", "").strip()[:200]
+        purpose = cap_text(request.form.get("purpose", ""), 200)
         err = (f"Kiasi kiwe kati ya TZS {MIN_LOAN:,} na TZS {MAX_LOAN:,}."
                if not amount or not MIN_LOAN <= amount <= MAX_LOAN else
                f"Muda uwe miezi 1 hadi {MAX_MONTHS}." if not months or not 1 <= months <= MAX_MONTHS else
@@ -810,7 +877,7 @@ def applications():
 def decide(lid):
     db = get_db()
     db.execute("SELECT 1 FROM loans WHERE id=? AND decision='pending'", (lid,)).fetchone() or abort(404)
-    action, note = request.form.get("action"), request.form.get("note", "").strip()[:300]
+    action, note = request.form.get("action"), cap_text(request.form.get("note", ""), 300)
     if action == "reject":
         db.execute("UPDATE loans SET decision='rejected', review_note=? WHERE id=?", (note, lid))
         flash("Ombi limekataliwa.", "warning")
@@ -845,45 +912,58 @@ def sign_agreement(lid):
     last = info["rows"][-1]
     f = request.form
     existing = db.execute("SELECT * FROM agreements WHERE loan_id=?", (lid,)).fetchone()
+    settings = lender_settings(db)
 
     # MKOPESHAJI (admin) anasaini baada ya mkopaji kusaini.
     if session.get("role") == "admin":
         if not existing or not existing["accepted"]:
             flash("Mteja hajasaini mkataba bado. Subiri asaini kabla ya wewe.", "warning")
             return redirect(url_for("loan", lid=lid))
-        lender_sign = f.get("lender_sign", "").strip()[:80]
-        lender_witness = f.get("lender_witness", "").strip()[:80]
+        lender_sign = sign_style(f.get("lender_sign", ""))
+        lender_witness = cap_text(f.get("lender_witness", ""), 80)
+        lender_witness_sign = sign_style(f.get("lender_witness_sign", ""))
         err = ("Andika jina la mkopeshaji kama saini." if not lender_sign else
-               "Weka jina la shahidi wa mkopeshaji." if len(lender_witness) < 3 else None)
+               "Weka jina la shahidi wa mkopeshaji." if len(lender_witness) < 3 else
+               "Weka saini ya shahidi wa mkopeshaji." if not lender_witness_sign else None)
         if err:
             flash(err, "danger")
             return redirect(url_for("loan", lid=lid))
-        db.execute("UPDATE agreements SET lender=?, lender_sign=?, lender_witness=? WHERE loan_id=?",
-                   (LENDER, lender_sign, lender_witness, lid))
+        save_lender_settings(db, dict(
+            lender_name=cap_text(settings["lender_name"] or LENDER, 120),
+            lender_witness=lender_witness, lender_witness_sign=lender_witness_sign,
+            lender_sign=lender_sign))
         db.commit()
         audit("agreement.lender_sign", f"loan#{lid}", lender_sign)
-        flash("Mkataba umesainiwa upande wa mkopeshaji.", "success")
+        flash("Mkataba umesainiwa upande wa mkopeshaji. Taarifa hizi zimetumika kwenye "
+              "mikataba yote.", "success")
         return redirect(url_for("loan", lid=lid))
 
     # MKOPAJI (mteja) anasaini pamoja na MDHAMINI.
     borrower = info["customer"]
     guarantor = (info.get("guarantor_name") or "").strip()
-    sign = f.get("borrower_sign", "").strip()[:80]
-    gsign = f.get("guarantor_sign", "").strip()[:80]
+    place = cap_text(f.get("place", ""), 120)
+    borrower_witness = cap_text(f.get("borrower_witness", ""), 80)
+    borrower_witness_sign = sign_style(f.get("borrower_witness_sign", ""))
+    sign = sign_style(f.get("borrower_sign", ""))
+    guarantor_witness = cap_text(f.get("guarantor_witness", ""), 80)
+    guarantor_witness_sign = sign_style(f.get("guarantor_witness_sign", ""))
+    gsign = sign_style(f.get("guarantor_sign", ""))
     err = ("Unaweka saini kwa kukubaliana na masharti ya mkataba." if not f.get("accept") else
-           "Weka mahali ulipokazia mkataba huu." if not f.get("place", "").strip() else
+           "Weka mahali ulipokazia mkataba huu." if len(place) < 3 else
            "Weka tarehe sahihi ya kusaini." if not to_date(f.get("signed_on")) else
            "Andika jina lako kama saini." if not sign else
-           f"Jina la saini lazima liwe kama jina lako: {borrower}." if sign.lower() != borrower.lower() else
+           f"Jina la saini lazima liwe kama jina lako: {borrower}."
+           if not sig_matches(sign, borrower) else
            "Weka jina la shahidi wako (shahidi wa mkopaji)."
-           if len(f.get("borrower_witness", "").strip()) < 3 else
+           if len(borrower_witness) < 3 else
+           "Weka saini ya shahidi wa mkopaji." if not borrower_witness_sign else
            "Weka saini ya mdhamini (andika jina la mdhamini)." if not gsign else
            f"Jina la saini ya mdhamini liwe kama jina la mdhamini: {guarantor}."
-           if guarantor and gsign.lower() != guarantor.lower() else
-           "Weka jina la shahidi wa mdhamini."
-           if len(f.get("guarantor_witness", "").strip()) < 3 else
+           if guarantor and not sig_matches(gsign, guarantor) else
+           "Weka jina la shahidi wa mdhamini." if len(guarantor_witness) < 3 else
+           "Weka saini ya shahidi wa mdhamini." if not guarantor_witness_sign else
            "Weka dhamana ya kwanza (kitu kinachowekwa kama dhamana)."
-           if len(f.get("collateral_1", "").strip()) < 3 else
+           if len(cap_text(f.get("collateral_1", ""), 160)) < 3 else
            "Weka thamani ya dhamana kwa TZS."
            if not to_int(f.get("collateral_value")) else None)
     if err:
@@ -892,27 +972,31 @@ def sign_agreement(lid):
     collateral_value = to_int(f.get("collateral_value"))
     db.execute("""INSERT INTO agreements
         (loan_id, place, signed_on, purpose, principal, interest, total, period_months, repay_by,
-         borrower, borrower_witness, borrower_sign, lender, guarantor, guarantor_phone,
-         guarantor_sign, guarantor_witness, collateral_1, collateral_2, collateral_3,
-         collateral_value, accepted)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+         borrower, borrower_witness, borrower_witness_sign, borrower_sign, lender,
+         guarantor, guarantor_phone, guarantor_sign, guarantor_witness, guarantor_witness_sign,
+         collateral_1, collateral_2, collateral_3, collateral_value, accepted)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
         ON CONFLICT(loan_id) DO UPDATE SET
           place=excluded.place, signed_on=excluded.signed_on, purpose=excluded.purpose,
           principal=excluded.principal, interest=excluded.interest, total=excluded.total,
           period_months=excluded.period_months, repay_by=excluded.repay_by,
           borrower=excluded.borrower, borrower_witness=excluded.borrower_witness,
-          borrower_sign=excluded.borrower_sign, guarantor=excluded.guarantor,
-          guarantor_phone=excluded.guarantor_phone, guarantor_sign=excluded.guarantor_sign,
-          guarantor_witness=excluded.guarantor_witness, collateral_1=excluded.collateral_1,
-          collateral_2=excluded.collateral_2, collateral_3=excluded.collateral_3,
-          collateral_value=excluded.collateral_value, accepted=1""",
-        (lid, f.get("place", "").strip()[:120], to_date(f.get("signed_on")).isoformat(),
+          borrower_witness_sign=excluded.borrower_witness_sign,
+          borrower_sign=excluded.borrower_sign, lender=excluded.lender,
+          guarantor=excluded.guarantor, guarantor_phone=excluded.guarantor_phone,
+          guarantor_sign=excluded.guarantor_sign, guarantor_witness=excluded.guarantor_witness,
+          guarantor_witness_sign=excluded.guarantor_witness_sign,
+          collateral_1=excluded.collateral_1, collateral_2=excluded.collateral_2,
+          collateral_3=excluded.collateral_3, collateral_value=excluded.collateral_value,
+          accepted=1""",
+        (lid, place, to_date(f.get("signed_on")).isoformat(),
          info["purpose"], info["principal"], info["interest"], info["total"], info["months"],
-         last["due"].isoformat(), borrower, f.get("borrower_witness", "").strip()[:80], sign,
-         LENDER, guarantor or gsign, (info.get("guarantor_phone") or "").strip(), gsign,
-         f.get("guarantor_witness", "").strip()[:80],
-         f.get("collateral_1", "").strip()[:160], f.get("collateral_2", "").strip()[:160],
-         f.get("collateral_3", "").strip()[:160], collateral_value))
+         last["due"].isoformat(), borrower, borrower_witness, borrower_witness_sign, sign,
+         settings["lender_name"] or LENDER, guarantor or gsign,
+         (info.get("guarantor_phone") or "").strip(), gsign, guarantor_witness,
+         guarantor_witness_sign, cap_text(f.get("collateral_1", ""), 160),
+         cap_text(f.get("collateral_2", ""), 160), cap_text(f.get("collateral_3", ""), 160),
+         collateral_value))
     db.commit()
     audit("agreement.borrower_sign", f"loan#{lid}", sign)
     flash("Mkataba umesainiwa kwa mafanikio.", "success")
@@ -930,7 +1014,7 @@ def agreement_row(gid):
 def agreement_print(gid):
     g = agreement_row(gid)
     own_or_admin(g)
-    return render_template("agreement_print.html", g=g)
+    return render_template("agreement_print.html", g=g, settings=lender_settings(get_db()))
 
 
 # ---------- Wateja (admin) ----------
@@ -1028,6 +1112,33 @@ def audit_log():
     return render_template("audit.html", rows=rows)
 
 
+# ---------- Taarifa za mkopeshaji (zinazotumika kwenye mikataba yote) ----------
+@app.route("/admin/settings", methods=["GET", "POST"])
+@admin_required
+def admin_settings():
+    db = get_db()
+    e = {}
+    if request.method == "POST":
+        s = {k: (sign_style(request.form.get(k, "")) if k.endswith("_sign")
+                 else cap_text(request.form.get(k, ""), 120))
+             for k in ("lender_name", "lender_witness", "lender_witness_sign", "lender_sign")}
+        e = ("Weka jina la mkopeshaji." if len(s["lender_name"]) < 3 else
+             "Weka jina la shahidi wa mkopeshaji." if len(s["lender_witness"]) < 3 else
+             "Weka saini ya mkopeshaji." if not s["lender_sign"] else
+             "Weka saini ya shahidi wa mkopeshaji." if not s["lender_witness_sign"] else None)
+        if e:
+            flash(e, "danger")
+        else:
+            save_lender_settings(db, s)
+            db.commit()
+            audit("settings.lender_update", "settings#1", s["lender_name"])
+            flash("Taarifa za mkopeshaji zimesasishwa kwenye mikataba yote.", "success")
+            return redirect(url_for("admin_settings"))
+    else:
+        s = lender_settings(db)
+    return render_template("admin_settings.html", s=s, e=e)
+
+
 # ---------- Mikopo ----------
 @app.route("/loans")
 @admin_required
@@ -1063,7 +1174,8 @@ def loan(lid):
     pays = db.execute("SELECT * FROM payments WHERE loan_id=? ORDER BY paid_on DESC, id DESC", (lid,)).fetchall()
     agr = db.execute("SELECT * FROM agreements WHERE loan_id=?", (lid,)).fetchone()
     return render_template("loan.html", l=build(dict(row), date.today()), pays=pays,
-                           methods=METHODS, today=date.today().isoformat(), agr=agr)
+                           methods=METHODS, today=date.today().isoformat(), agr=agr,
+                           settings=lender_settings(db))
 
 
 @app.post("/loans/<int:lid>/pay")
@@ -1086,7 +1198,7 @@ def pay(lid):
         flash("Tarehe au njia ya malipo si sahihi.", "danger")
     else:
         db.execute("INSERT INTO payments(loan_id, amount, paid_on, method, note) VALUES(?,?,?,?,?)",
-                   (lid, amount, paid_on.isoformat(), method, request.form.get("note", "").strip()[:200]))
+                   (lid, amount, paid_on.isoformat(), method, cap_text(request.form.get("note", ""), 200)))
         db.commit()
         audit("payment.create", f"loan#{lid}", f"amount={amount}; method={method}")
         flash("Malipo yamerekodiwa.", "success")
@@ -1121,8 +1233,8 @@ def payment_edit(pid):
             e["method"] = "Chagua njia sahihi ya malipo."
         if not e:
             db.execute("UPDATE payments SET amount=?, paid_on=?, method=?, note=? WHERE id=?",
-                       (amount, paid_on.isoformat(), request.form.get("method"),
-                        request.form.get("note", "").strip()[:200], pid))
+                        (amount, paid_on.isoformat(), request.form.get("method"),
+                         cap_text(request.form.get("note", ""), 200), pid))
             db.commit()
             audit("payment.edit", f"RCP-{pid:05d}", f"amount={amount}")
             flash("Malipo yamerekebishwa.", "success")

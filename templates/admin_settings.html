@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Taarifa za mkopeshaji | ZABURI YA 23 MICROFINANCE{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Taarifa za Mkopeshaji kwenye Mkataba</h3>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">Rudi</a>
+</div>
+<div class="alert alert-info py-2 small">
+  <i class="bi bi-info-circle"></i> Majina yote yanayojazwa kwenye fomu huandikwa kwa herufi kubwa
+  za mwanzo. Saini zote husawazishwa kwa mtindo wa <b>A.C. mwanjoka</b>. Unapobadilisha taarifa
+  hapa, zitasasishwa <b>kwenye mikataba yote iliyotengenezwa</b> mara moja.
+</div>
+<div class="card p-4" style="max-width:820px">
+  <form method="post" class="row g-3">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <div class="col-md-6">
+      <label class="form-label small" for="lender_name">Jina la MKOPESHAJI</label>
+      <input class="form-control" id="lender_name" name="lender_name" maxlength="120"
+             value="{{ s.lender_name or '' }}" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small" for="lender_sign">Saini ya MKOPESHAJI</label>
+      <input class="form-control" id="lender_sign" name="lender_sign" maxlength="80"
+             value="{{ s.lender_sign or '' }}" placeholder="Mfano: A.C. mwanjoka" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small" for="lender_witness">Jina la SHAHIDI WA MKOPESHAJI</label>
+      <input class="form-control" id="lender_witness" name="lender_witness" maxlength="120"
+             value="{{ s.lender_witness or '' }}" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small" for="lender_witness_sign">Saini ya SHAHIDI WA MKOPESHAJI</label>
+      <input class="form-control" id="lender_witness_sign" name="lender_witness_sign" maxlength="80"
+             value="{{ s.lender_witness_sign or '' }}" placeholder="Mfano: A.C. mwanjoka" required>
+    </div>
+    <div class="col-12">
+      <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Hifadhi na usasishe mikataba yote</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

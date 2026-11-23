@@ -38,13 +38,17 @@
   <div class="card p-3 mb-3">
     <h6 class="mb-3"><i class="bi bi-pen"></i> Saini ya mkopeshaji</h6>
     <p class="text-muted small mb-2">Mkopaji <b>{{ agr.borrower }}</b> amesaini tarehe
-      <b>{{ agr.signed_on }}</b> mahali <b>{{ agr.place }}</b>. Weka saini upande wa ZABURI YA 23 MICROFINANCE.</p>
+      <b>{{ agr.signed_on }}</b> mahali <b>{{ agr.place }}</b>. Weka saini upande wa
+      <b>{{ settings.lender_name }}</b>. Taarifa hizi zinatumika kwenye mikataba yote;
+      <a href="{{ url_for('admin_settings') }}">zihariri hapa</a>.</p>
     <form method="post" action="{{ url_for('sign_agreement', lid=l.id) }}" class="row g-2">
       <input type="hidden" name="csrf" value="{{ csrf() }}">
       <div class="col-md-6"><input class="form-control" name="lender_witness"
-           placeholder="Jina la shahidi wa mkopeshaji" required></div>
-      <div class="col-md-6"><input class="form-control" name="lender_sign"
-           placeholder="Sahihi (andika jina la mkopeshaji)" required></div>
+           value="{{ settings.lender_witness or '' }}" placeholder="Jina la shahidi wa mkopeshaji" required></div>
+      <div class="col-md-6"><input class="form-control" name="lender_witness_sign"
+           value="{{ settings.lender_witness_sign or '' }}" placeholder="Saini ya shahidi wa mkopeshaji" required></div>
+      <div class="col-md-12"><input class="form-control" name="lender_sign"
+           value="{{ settings.lender_sign or '' }}" placeholder="Sahihi (andika jina la mkopeshaji)" required></div>
       <div class="col-12"><button class="btn btn-warning"><i class="bi bi-pen"></i> Hifadhi saini ya mkopeshaji</button></div>
     </form>
   </div>

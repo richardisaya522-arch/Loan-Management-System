@@ -36,6 +36,40 @@
   const normPhone = (p) => { let d = digits(p); if (d.startsWith("255")) d = "0" + d.slice(3); return d; };
   const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e || "").trim());
 
+  // Majina yote yaliyojazwa kwenye fomu yanaanza kwa herufi kubwa.
+  const capText = (s, max) => String(s == null ? "" : s).trim().replace(/\s+/g, " ")
+    .replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (m, p1, p2) => p1 + p2.toUpperCase())
+    .slice(0, max || 999);
+  // Saini zote ziko kwa mtindo wa mfano: A.C. mwanjoka.
+  const signStyle = (s) => {
+    const t = capText(s).match(/[A-Za-z]\.|[^\s]+/g) || [];
+    const isInitial = (x) => /^[A-Za-z]\.$/.test(x);
+    const initials = t.filter(isInitial).map((x) => x[0].toUpperCase());
+    const words = t.filter((x) => !isInitial(x));
+    if (!initials.length && words.length > 1)
+      words.slice(0, -1).forEach((w) => initials.push(w[0]));
+    const last = words.length ? words[words.length - 1].toLowerCase() : "";
+    return (initials.map((x) => x + ".").join("") + " " + last).trim();
+  };
+  const signatureMatches = (sign, name) => {
+    const norm = (x) => String(x || "").trim().replace(/\s+/g, " ").toLowerCase();
+    return !!name && [norm(name), norm(signStyle(name))].includes(norm(sign));
+  };
+  let _settingsReady = null;
+  async function settingsReady() {
+    if (_settingsReady === null) {
+      const { error } = await sb.rpc("get_app_settings");
+      _settingsReady = !error;
+    }
+    return _settingsReady;
+  }
+  async function fetchAppSettings() {
+    try {
+      const { data, error } = await sb.rpc("get_app_settings");
+      return !error && data && data[0] ? data[0] : null;
+    } catch (_) { return null; }
+  }
+
   // Sera ya password (ulingane na app ya Flask). Uthibitisho halisi uko Supabase Auth.
   const COMMON_PASSWORDS = new Set([
     "password", "password1", "password123", "12345678", "123456789", "1234567890",
@@ -559,7 +593,7 @@
     $app.querySelector("#regForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = e.target;
-      const name = f.name.value.trim();
+      const name = capText(f.name.value, 120);
       const phone = normPhone(f.phone.value);
       const email = f.email.value.trim().toLowerCase();
       if (name.length < 2) return toast("Weka jina kamili.", "danger");
@@ -604,6 +638,7 @@
       ["#/payments", "Malipo", "receipt"],
       ["#/backups", "Nakala", "hdd"],
       ["#/audit", "Kumbukumbu", "journal-text"],
+      ["#/settings", "Mkopeshaji", "pencil-square"],
       ["#/password", "Badilisha password", "key"]
     ];
     return [
@@ -708,6 +743,7 @@
       if (h === "#/payments") return paymentsView(v);
       if (h === "#/backups") return backupsView(v);
       if (h === "#/audit") return auditView(v);
+      if (h === "#/settings") return adminSettingsView(v);
     }
     v.innerHTML = `<div class="alert alert-warning">Ukurasa haupatikani.</div>`;
   }
@@ -807,11 +843,18 @@
         <input class="form-control" id="${prefix}BorrowerWitness" name="borrower_witness"
           maxlength="80" value="${val(a.borrower_witness)}" placeholder="Jina kamili la shahidi wako" required>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-4">
+        <label class="form-label" for="${prefix}BorrowerWitnessSign">Saini ya shahidi wa mkopaji</label>
+        <input class="form-control" id="${prefix}BorrowerWitnessSign" name="borrower_witness_sign"
+          maxlength="80" value="${val(a.borrower_witness_sign)}"
+          placeholder="Andika jina la shahidi kama saini" required>
+        <div class="form-text">Muundo wa saini: A.C. mwanjoka.</div>
+      </div>
+      <div class="col-md-4">
         <label class="form-label" for="${prefix}BorrowerSign">Saini ya mkopaji (andika jina lako)</label>
         <input class="form-control" id="${prefix}BorrowerSign" name="borrower_sign" maxlength="80"
           value="${val(a.borrower_sign)}" placeholder="Andika jina lako kama saini" required>
-        <div class="form-text">Lazima liwe kama jina lako lililo kwenye akaunti: <b>${esc(cust.name || "")}</b></div>
+        <div class="form-text">Lazima liwe kama jina lako: <b>${esc(cust.name || "")}</b> (au mtindo wa A.C. mwanjoka).</div>
       </div>
 
       <div class="col-12"><hr class="my-1"><div class="form-section">Mdhamini</div></div>
@@ -833,6 +876,12 @@
         <label class="form-label" for="${prefix}GuarantorWitness">Jina la shahidi wa mdhamini</label>
         <input class="form-control" id="${prefix}GuarantorWitness" name="guarantor_witness"
           maxlength="80" value="${val(a.guarantor_witness)}" placeholder="Jina kamili la shahidi wa mdhamini" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="${prefix}GuarantorWitnessSign">Saini ya shahidi wa mdhamini</label>
+        <input class="form-control" id="${prefix}GuarantorWitnessSign" name="guarantor_witness_sign"
+          maxlength="80" value="${val(a.guarantor_witness_sign)}"
+          placeholder="Andika jina la shahidi kama saini" required>
       </div>
 
       <div class="col-12"><hr class="my-1"><div class="form-section">Dhamana ya mkataba</div></div>
@@ -896,23 +945,33 @@
     return {
       p_principal: Number(f.principal.value),
       p_months: Number(f.months.value),
-      p_purpose: f.purpose.value.trim(),
-      p_place: f.place.value.trim(),
+      p_purpose: capText(f.purpose.value, 200),
+      p_place: capText(f.place.value, 120),
       p_signed_on: f.signed_on.value,
-      p_borrower_witness: f.borrower_witness.value.trim(),
-      p_borrower_sign: f.borrower_sign.value.trim(),
-      p_guarantor_sign: f.guarantor_sign.value.trim(),
-      p_guarantor_witness: f.guarantor_witness.value.trim(),
-      p_collateral_1: f.collateral_1.value.trim(),
-      p_collateral_2: f.collateral_2.value.trim(),
-      p_collateral_3: f.collateral_3.value.trim(),
+      p_borrower_witness: capText(f.borrower_witness.value, 80),
+      p_borrower_witness_sign: signStyle(f.borrower_witness_sign.value).slice(0, 80),
+      p_borrower_sign: signStyle(f.borrower_sign.value).slice(0, 80),
+      p_guarantor_sign: signStyle(f.guarantor_sign.value).slice(0, 80),
+      p_guarantor_witness: capText(f.guarantor_witness.value, 80),
+      p_guarantor_witness_sign: signStyle(f.guarantor_witness_sign.value).slice(0, 80),
+      p_collateral_1: capText(f.collateral_1.value, 160),
+      p_collateral_2: capText(f.collateral_2.value, 160),
+      p_collateral_3: capText(f.collateral_3.value, 160),
       p_collateral_value: Number(f.collateral_value.value)
     };
   }
 
+  async function contractRpc(name, f, extra) {
+    const vals = { ...contractValues(f), ...(extra || {}) };
+    if (!(await settingsReady())) {
+      delete vals.p_borrower_witness_sign;
+      delete vals.p_guarantor_witness_sign;
+    }
+    return sb.rpc(name, vals);
+  }
+
   function validateContract(f, c) {
     const v = contractValues(f);
-    const norm = (s) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
     if (!f.accept.checked) return "Kubali masharti ya mkataba kwanza.";
     if (!Number.isFinite(v.p_principal) || v.p_principal < CFG.MIN_LOAN || v.p_principal > CFG.MAX_LOAN)
       return `Kiasi kiwe kati ya ${tzs(CFG.MIN_LOAN)} na ${tzs(CFG.MAX_LOAN)}.`;
@@ -924,13 +983,15 @@
     if (new Date(v.p_signed_on + "T00:00:00") > today())
       return "Tarehe ya kusaini isizidi leo.";
     if (v.p_borrower_witness.length < 3) return "Weka jina la shahidi wa mkopaji.";
+    if (v.p_borrower_witness_sign.length < 2) return "Weka saini ya shahidi wa mkopaji.";
     if (v.p_borrower_sign.length < 2) return "Weka saini ya mkopaji.";
-    if (norm(v.p_borrower_sign) !== norm(c && c.name))
+    if (!signatureMatches(v.p_borrower_sign, c && c.name))
       return `Saini ya mkopaji iwe kama jina lako: ${(c && c.name) || ""}.`;
     if (v.p_guarantor_sign.length < 2) return "Weka saini ya mdhamini.";
-    if (c && c.guarantor_name && norm(v.p_guarantor_sign) !== norm(c.guarantor_name))
+    if (c && c.guarantor_name && !signatureMatches(v.p_guarantor_sign, c.guarantor_name))
       return `Saini ya mdhamini iwe kama jina la mdhamini: ${c.guarantor_name}.`;
     if (v.p_guarantor_witness.length < 3) return "Weka jina la shahidi wa mdhamini.";
+    if (v.p_guarantor_witness_sign.length < 2) return "Weka saini ya shahidi wa mdhamini.";
     if (v.p_collateral_1.length < 3) return "Weka dhamana ya kwanza.";
     if (!Number.isFinite(v.p_collateral_value) || v.p_collateral_value <= 0)
       return "Weka thamani sahihi ya dhamana.";
@@ -1025,8 +1086,9 @@
     </details>`;
   }
 
-  function printContract(loan, agr, cust) {
+  async function printContract(loan, agr, cust) {
     if (!agr) return toast("Mkataba haujajazwa bado.", "warning");
+    const set = await fetchAppSettings();
     const approved = loan.decision === "approved";
     const b = buildLoan(loan, [], today());
     const lastDue = approved && b.rows.length ? b.rows[b.rows.length - 1].due : null;
@@ -1039,7 +1101,10 @@
     const signedOn = agr.signed_on ? fmtDate(agr.signed_on) : "-";
     const place = agr.borrower_place || "-";
     const borrower = (cust && cust.name) || "";
-    const lender = agr.lender || "ZABURI YA 23 MICROFINANCE";
+    const lender = (set && set.lender_name) || agr.lender || "ZABURI YA 23 MICROFINANCE";
+    const lenderWitness = (set && set.lender_witness) || agr.lender_witness || "-";
+    const lenderSign = (set && set.lender_sign) || agr.lender_sign || "";
+    const lenderWitnessSign = (set && set.lender_witness_sign) || agr.lender_witness_sign || "";
     const html = `<!doctype html><html lang="sw"><head><meta charset="utf-8">
       <title>Mkataba #${loan.id} | ZABURI YA 23 MICROFINANCE</title>
       <style>
@@ -1127,23 +1192,27 @@
       <p>Wahusika wamekubaliana kama ilivyo hapo juu na kuweka saini zao kama ifuatavyo hapo chini.</p>
 
       <table class="sign">
-        <thead><tr><th style="width:34%">Naibu</th><th style="width:33%">Jina</th><th>Sahihi</th></tr></thead>
+        <thead><tr><th style="width:30%">Naibu</th><th style="width:35%">Jina</th><th>Sahihi</th></tr></thead>
         <tbody>
           <tr><td><b>MKOPESHAJI</b></td><td>${esc(lender)}</td>
-            <td class="sig">${esc(agr.lender_sign || "")}</td></tr>
-          <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>${esc(agr.lender_witness || "-")}</td><td></td></tr>
+            <td class="sig">${esc(lenderSign)}</td></tr>
+          <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>${esc(lenderWitness)}</td>
+            <td class="sig">${esc(lenderWitnessSign)}</td></tr>
           <tr><td><b>MKOPAJI</b></td><td>${esc(borrower)}</td>
             <td class="sig">${esc(agr.borrower_sign || "")}</td></tr>
-          <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>${esc(agr.borrower_witness || "-")}</td><td></td></tr>
+          <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>${esc(agr.borrower_witness || "-")}</td>
+            <td class="sig">${esc(agr.borrower_witness_sign || "")}</td></tr>
           <tr><td><b>MDHAMINI</b></td><td>${esc(gname || "-")}${gphone ? ` (${esc(gphone)})` : ""}</td>
             <td class="sig">${esc(agr.guarantor_sign || "")}</td></tr>
-          <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>${esc(agr.guarantor_witness || "-")}</td><td></td></tr>
+          <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>${esc(agr.guarantor_witness || "-")}</td>
+            <td class="sig">${esc(agr.guarantor_witness_sign || "")}</td></tr>
         </tbody>
       </table>
 
       <div class="note">Mkataba huu umetengenezwa na mfumo wa ZABURI YA 23 MICROFINANCE.
-        Sahihi za MKOPESHAJI na SHAHIDI WA MKOPESHAJI zinaweza kuongezwa mkononi baada ya kupeleka
-        nakala halisi.${loan.decision === "pending" ? " Hali: Inasubiri idhini ya ofisi." : ""}${loan.decision === "rejected" ? " Hali: Ombi limekataliwa." : ""}</div>
+        Wahusika wamekubaliana kama ilivyo hapo juu na kuweka saini zao kama ilivyo hapo chini.
+        Majina yameandikwa kwa herufi kubwa za mwanzo; saini zote ziko kwa mtindo wa A.C. mwanjoka.
+        ${loan.decision === "pending" ? " Hali: Inasubiri idhini ya ofisi." : ""}${loan.decision === "rejected" ? " Hali: Ombi limekataliwa." : ""}</div>
 
       <p class="note">Tumia Ctrl+P (au menyu ya kivinjari) kuchapisha au kuhifadhi PDF.</p>
       </body></html>`;
@@ -1184,8 +1253,7 @@
       const f = e.target;
       const err = validateContract(f, c);
       if (err) return toast(err, "danger");
-      const vals = contractValues(f);
-      const { error } = await sb.rpc("apply_loan_contract", vals);
+      const { error } = await contractRpc("apply_loan_contract", f);
       if (error) return toast(error.message, "danger");
       f.reset();
       toast("Ombi na mkataba vimepokelewa. Utajulishwa uamuzi ukitolewa.", "success");
@@ -1235,7 +1303,7 @@
     document.getElementById("profileForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const f = e.target;
-      const name = f.name.value.trim();
+      const name = capText(f.name.value, 120);
       if (name.split(/\s+/).length < 3) return toast("Andika majina matatu kamili.", "danger");
       if (!validPhone(f.phone.value)) return toast("Namba yako ya simu si sahihi.", "danger");
       if (!validPhone(f.guarantor_phone.value)) return toast("Simu ya mdhamini si sahihi.", "danger");
@@ -1243,11 +1311,11 @@
         return toast("Mdhamini asimame na namba yako mwenyewe.", "danger");
       const { error } = await sb.rpc("save_profile", {
         p_name: name, p_phone: normPhone(f.phone.value), p_email: f.email.value.trim(),
-        p_address: f.address.value.trim(), p_occupation: f.occupation.value.trim(),
-        p_guarantor_name: f.guarantor_name.value.trim(),
+        p_address: capText(f.address.value, 160), p_occupation: capText(f.occupation.value, 120),
+        p_guarantor_name: capText(f.guarantor_name.value, 120),
         p_guarantor_phone: normPhone(f.guarantor_phone.value),
-        p_guarantor_address: f.guarantor_address.value.trim(),
-        p_bank_name: f.bank_name.value.trim(), p_bank_account: f.bank_account.value.trim()
+        p_guarantor_address: capText(f.guarantor_address.value, 160),
+        p_bank_name: capText(f.bank_name.value, 120), p_bank_account: f.bank_account.value.trim()
       });
       if (error) return toast(error.message, "danger");
       await loadProfile();
@@ -1389,6 +1457,7 @@
   async function loanDetailView(v, lid) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
     const isAdmin = state.profile.role === "admin";
+    const set = isAdmin ? await fetchAppSettings() : null;
     const { data: loan, error: loanErr } = await sb.from("loans")
       .select("*, customers(name, phone, guarantor_name, guarantor_phone)")
       .eq("id", lid).maybeSingle();
@@ -1434,17 +1503,21 @@
       if (!agr || !agr.accepted) {
         signBlock += `<div class="card p-3 mb-3"><h6><i class="bi bi-pen"></i> Saini ya mkopaji</h6>
           <form id="signBorrower" class="row g-2">
-            <div class="col-md-4"><input class="form-control" name="sign" placeholder="Jina/sahihi yako" maxlength="80" required></div>
-            <div class="col-md-4"><input class="form-control" name="witness" placeholder="Shahidi" maxlength="80" required></div>
-            <div class="col-md-4"><input class="form-control" name="place" placeholder="Mahali" maxlength="120" required></div>
+            <div class="col-md-3"><input class="form-control" name="sign" placeholder="Jina/sahihi yako" maxlength="80" required></div>
+            <div class="col-md-3"><input class="form-control" name="witness" placeholder="Shahidi" maxlength="80" required></div>
+            <div class="col-md-3"><input class="form-control" name="witness_sign" placeholder="Saini ya shahidi" maxlength="80" required></div>
+            <div class="col-md-3"><input class="form-control" name="place" placeholder="Mahali" maxlength="120" required></div>
             <div class="col-12"><button class="btn btn-primary">Hifadhi saini</button></div>
           </form></div>`;
       }
       if (isAdmin && (!agr || !(agr.lender_sign || "").trim())) {
         signBlock += `<div class="card p-3 mb-3"><h6><i class="bi bi-pen"></i> Saini ya mkopeshaji</h6>
+          <div class="form-text mb-2">Taarifa hizi zinatumika kwenye mikataba yote.
+            <a href="#/settings">Zihariri hapa</a>.</div>
           <form id="signLender" class="row g-2">
-            <div class="col-md-6"><input class="form-control" name="witness" placeholder="Shahidi wa mkopeshaji" maxlength="80" required></div>
-            <div class="col-md-6"><input class="form-control" name="sign" placeholder="Andika jina la mkopeshaji" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="witness" value="${esc((set && set.lender_witness) || "")}" placeholder="Shahidi wa mkopeshaji" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="witness_sign" value="${esc((set && set.lender_witness_sign) || "")}" placeholder="Saini ya shahidi" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="sign" value="${esc((set && set.lender_sign) || "")}" placeholder="Andika jina la mkopeshaji" maxlength="80" required></div>
             <div class="col-12"><button class="btn btn-warning">Hifadhi saini ya mkopeshaji</button></div>
           </form></div>`;
       }
@@ -1529,7 +1602,7 @@
       const f = e.target;
       const { error } = await sb.rpc("record_payment", {
         p_loan_id: lid, p_amount: +f.amount.value, p_paid_on: f.paid_on.value,
-        p_method: f.method.value, p_note: f.note.value.trim()
+        p_method: f.method.value, p_note: capText(f.note.value, 200)
       });
       if (error) return toast(error.message, "danger");
       toast("Malipo yamerekodiwa.", "success"); loanDetailView(v, lid);
@@ -1537,24 +1610,41 @@
     const sb1 = document.getElementById("signBorrower");
     if (sb1) sb1.addEventListener("submit", async (e) => {
       e.preventDefault(); const f = e.target;
-      const { error } = await sb.rpc("sign_borrower", { p_loan_id: lid, p_sign: f.sign.value.trim(),
-        p_witness: f.witness.value.trim(), p_place: f.place.value.trim() });
+      const vals = { p_loan_id: lid, p_sign: signStyle(f.sign.value).slice(0, 80),
+        p_witness: capText(f.witness.value, 80),
+        p_witness_sign: signStyle(f.witness_sign.value).slice(0, 80),
+        p_place: capText(f.place.value, 120) };
+      if (!(await settingsReady())) delete vals.p_witness_sign;
+      const { error } = await sb.rpc("sign_borrower", vals);
       if (error) return toast(error.message, "danger");
       toast("Mkataba umesainiwa.", "success"); loanDetailView(v, lid);
     });
     const sl = document.getElementById("signLender");
     if (sl) sl.addEventListener("submit", async (e) => {
       e.preventDefault(); const f = e.target;
-      const { error } = await sb.rpc("sign_lender", { p_loan_id: lid, p_sign: f.sign.value.trim(),
-        p_witness: f.witness.value.trim() });
+      const witness = capText(f.witness.value, 80);
+      const witnessSign = signStyle(f.witness_sign.value).slice(0, 80);
+      const sign = signStyle(f.sign.value).slice(0, 80);
+      const vals = { p_loan_id: lid, p_sign: sign, p_witness: witness, p_witness_sign: witnessSign };
+      const ready = await settingsReady();
+      if (!ready) delete vals.p_witness_sign;
+      const { error } = await sb.rpc("sign_lender", vals);
       if (error) return toast(error.message, "danger");
-      toast("Saini ya mkopeshaji imehifadhiwa.", "success"); loanDetailView(v, lid);
+      if (ready) {
+        const upd = await sb.rpc("save_app_settings", {
+          p_lender_name: capText((set && set.lender_name) || CFG.BRAND || "ZABURI YA 23 MICROFINANCE", 120),
+          p_lender_witness: witness, p_lender_witness_sign: witnessSign, p_lender_sign: sign
+        });
+        if (upd.error) return toast(upd.error.message, "danger");
+      }
+      toast("Saini ya mkopeshaji imehifadhiwa kwenye mikataba yote.", "success");
+      loanDetailView(v, lid);
     });
 
     const rf = document.getElementById("reviewForm");
     if (rf) rf.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const note = rf.note.value.trim();
+      const note = capText(rf.note.value, 300);
       if (note.length < 3) return toast("Andika ujumbe wa marekebisho.", "danger");
       const { error } = await sb.rpc("request_loan_changes", { p_loan_id: lid, p_note: note });
       if (error) return toast(error.message, "danger");
@@ -1571,8 +1661,7 @@
       e.preventDefault();
       const err = validateContract(ef, cust);
       if (err) return toast(err, "danger");
-      const vals = contractValues(ef);
-      const { error } = await sb.rpc("resubmit_loan_contract", { p_loan_id: lid, ...vals });
+      const { error } = await contractRpc("resubmit_loan_contract", ef, { p_loan_id: lid });
       if (error) return toast(error.message, "danger");
       toast("Marekebisho yametumwa. Ombi linasubiri ukaguzi.", "success");
       loanDetailView(v, lid);
@@ -1585,6 +1674,56 @@
   }
 
   // ================= ADMIN =================
+  async function adminSettingsView(v) {
+    v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
+    if (!(await settingsReady())) {
+      v.innerHTML = `<div class="alert alert-warning">Kipengele hiki kinahitaji
+        migration ya mkataba. Endesha
+        <b>supabase/migrations/20261123120000_contract_signatures_settings.sql</b>
+        kwenye Supabase SQL Editor kwanza.</div>`;
+      return;
+    }
+    const s = (await fetchAppSettings()) || {};
+    v.innerHTML = `
+      <h3 class="mb-3">Taarifa za Mkopeshaji kwenye Mkataba</h3>
+      <div class="alert alert-info py-2 small">
+        Majina yote yaliyojazwa kwenye fomu huandikwa kwa herufi kubwa za mwanzo.
+        Saini zote husawazishwa kwa mtindo wa <b>A.C. mwanjoka</b>. Unapobadilisha taarifa
+        hapa, zinasasishwa <b>kwenye mikataba yote</b> mara moja.
+      </div>
+      <div class="card p-4" style="max-width:820px">
+        <form id="settingsForm" class="row g-3">
+          <div class="col-md-6"><label class="form-label">Jina la MKOPESHAJI</label>
+            <input class="form-control" name="lender_name" maxlength="120"
+              value="${esc(s.lender_name || CFG.BRAND || "")}" required></div>
+          <div class="col-md-6"><label class="form-label">Saini ya MKOPESHAJI</label>
+            <input class="form-control" name="lender_sign" maxlength="80"
+              value="${esc(s.lender_sign || "")}" placeholder="Mfano: A.C. mwanjoka" required></div>
+          <div class="col-md-6"><label class="form-label">Jina la SHAHIDI WA MKOPESHAJI</label>
+            <input class="form-control" name="lender_witness" maxlength="120"
+              value="${esc(s.lender_witness || "")}" required></div>
+          <div class="col-md-6"><label class="form-label">Saini ya SHAHIDI WA MKOPESHAJI</label>
+            <input class="form-control" name="lender_witness_sign" maxlength="80"
+              value="${esc(s.lender_witness_sign || "")}" placeholder="Mfano: A.C. mwanjoka" required></div>
+          <div class="col-12"><button class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> Hifadhi na usasishe mikataba yote</button></div>
+        </form>
+      </div>`;
+    document.getElementById("settingsForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const { error } = await sb.rpc("save_app_settings", {
+        p_lender_name: capText(f.lender_name.value, 120),
+        p_lender_witness: capText(f.lender_witness.value, 120),
+        p_lender_witness_sign: signStyle(f.lender_witness_sign.value).slice(0, 80),
+        p_lender_sign: signStyle(f.lender_sign.value).slice(0, 80)
+      });
+      if (error) return toast(error.message, "danger");
+      toast("Taarifa za mkopeshaji zimesasishwa kwenye mikataba yote.", "success");
+      adminSettingsView(v);
+    });
+  }
+
   async function adminDashboard(v) {
     v.innerHTML = `<div class="spinner-wrap"><div class="spinner-border text-primary"></div></div>`;
     const [loans, payments, customers, pending] = await Promise.all([

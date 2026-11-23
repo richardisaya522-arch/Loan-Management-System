@@ -27,35 +27,46 @@
       <input class="form-control" value="Mtumia tarehe hapo juu" readonly disabled>
     </div>
 
-    <div class="col-md-6">
+    <div class="col-md-4">
       <label class="form-label small" for="bw{{ l.id }}">Jina la SHAHIDI WA MKOPAJI</label>
       <input class="form-control" id="bw{{ l.id }}" name="borrower_witness"
              placeholder="Jina kamili la shahidi wako" required>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
+      <label class="form-label small" for="bws{{ l.id }}">SAHIHI ya SHAHIDI WA MKOPAJI</label>
+      <input class="form-control" id="bws{{ l.id }}" name="borrower_witness_sign"
+             placeholder="Andika jina la shahidi kama saini" required>
+      <div class="form-text">Saini itasawazishwa kwa mtindo wa mfano: A.C. mwanjoka.</div>
+    </div>
+    <div class="col-md-4">
       <label class="form-label small" for="bs{{ l.id }}">SAHIHI ya MKOPAJI (andika jina lako)</label>
       <input class="form-control" id="bs{{ l.id }}" name="borrower_sign"
              placeholder="Andika jina lako kama saini" required>
-      <div class="form-text">Lazima liwe kama jina lako lililo kwenye akaunti: {{ l.customer }}</div>
+      <div class="form-text">Lazima liwe kama jina lako: {{ l.customer }} (au mtindo wa A.C. mwanjoka).</div>
     </div>
 
     <div class="col-12"><hr class="my-1"><div class="form-section">Mdhamini</div></div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label small">Jina la MDHAMINI</label>
       <input class="form-control" value="{{ l.guarantor_name or 'Hakuna kwenye profile' }}" readonly disabled>
       {% if not l.guarantor_name %}
       <div class="form-text text-warning"><a href="{{ url_for('profile') }}">Ongeza mdhamini kwenye profile</a> ili jina lithibitike.</div>
       {% endif %}
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label small" for="gs{{ l.id }}">SAHIHI ya MDHAMINI (andika jina lake)</label>
       <input class="form-control" id="gs{{ l.id }}" name="guarantor_sign"
              placeholder="Andika jina la mdhamini kama saini" required>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label small" for="gw{{ l.id }}">Jina la SHAHIDI WA MDHAMINI</label>
       <input class="form-control" id="gw{{ l.id }}" name="guarantor_witness"
              placeholder="Jina kamili la shahidi wa mdhamini" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small" for="gws{{ l.id }}">SAHIHI ya SHAHIDI WA MDHAMINI</label>
+      <input class="form-control" id="gws{{ l.id }}" name="guarantor_witness_sign"
+             placeholder="Andika jina la shahidi kama saini" required>
     </div>
 
     <div class="col-12"><hr class="my-1"><div class="form-section">Dhamana ya mkataba</div></div>

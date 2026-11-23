@@ -895,3 +895,10 @@ grant execute on function public.resubmit_loan_contract(
 grant execute on function public.request_loan_changes(bigint, text) to authenticated;
 
 select pg_notify('pgrst', 'reload schema');
+
+-- ---------------------------------------------------------------------
+-- Baada ya SQL hii, endesha pia:
+--   supabase/migrations/20261123120000_contract_signatures_settings.sql
+-- Inaongeza saini za mashahidi wote kwenye mkataba na taarifa za
+-- mkopeshaji zinazosasisha mikataba yote kwa wakati mmoja.
+-- ---------------------------------------------------------------------

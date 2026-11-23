@@ -55,6 +55,7 @@
     const norm = (x) => String(x || "").trim().replace(/\s+/g, " ").toLowerCase();
     return !!name && [norm(name), norm(signStyle(name))].includes(norm(sign));
   };
+  const displaySign = (sign, name) => sign || signStyle(name);
   let _settingsReady = null;
   async function settingsReady() {
     if (_settingsReady === null) {
@@ -949,11 +950,11 @@
       p_place: capText(f.place.value, 120),
       p_signed_on: f.signed_on.value,
       p_borrower_witness: capText(f.borrower_witness.value, 80),
-      p_borrower_witness_sign: signStyle(f.borrower_witness_sign.value).slice(0, 80),
+      p_borrower_witness_sign: signStyle(f.borrower_witness_sign.value || f.borrower_witness.value).slice(0, 80),
       p_borrower_sign: signStyle(f.borrower_sign.value).slice(0, 80),
       p_guarantor_sign: signStyle(f.guarantor_sign.value).slice(0, 80),
       p_guarantor_witness: capText(f.guarantor_witness.value, 80),
-      p_guarantor_witness_sign: signStyle(f.guarantor_witness_sign.value).slice(0, 80),
+      p_guarantor_witness_sign: signStyle(f.guarantor_witness_sign.value || f.guarantor_witness.value).slice(0, 80),
       p_collateral_1: capText(f.collateral_1.value, 160),
       p_collateral_2: capText(f.collateral_2.value, 160),
       p_collateral_3: capText(f.collateral_3.value, 160),
@@ -1102,9 +1103,10 @@
     const place = agr.borrower_place || "-";
     const borrower = (cust && cust.name) || "";
     const lender = (set && set.lender_name) || agr.lender || "ZABURI YA 23 MICROFINANCE";
-    const lenderWitness = (set && set.lender_witness) || agr.lender_witness || "-";
+    const lenderWitness = (set && set.lender_witness) || agr.lender_witness || CFG.LENDER_WITNESS || "-";
     const lenderSign = (set && set.lender_sign) || agr.lender_sign || "";
-    const lenderWitnessSign = (set && set.lender_witness_sign) || agr.lender_witness_sign || "";
+    const lenderWitnessSign = displaySign(
+      (set && set.lender_witness_sign) || agr.lender_witness_sign, lenderWitness);
     const html = `<!doctype html><html lang="sw"><head><meta charset="utf-8">
       <title>Mkataba #${loan.id} | ZABURI YA 23 MICROFINANCE</title>
       <style>
@@ -1201,11 +1203,11 @@
           <tr><td><b>MKOPAJI</b></td><td>${esc(borrower)}</td>
             <td class="sig">${esc(agr.borrower_sign || "")}</td></tr>
           <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>${esc(agr.borrower_witness || "-")}</td>
-            <td class="sig">${esc(agr.borrower_witness_sign || "")}</td></tr>
+            <td class="sig">${esc(displaySign(agr.borrower_witness_sign, agr.borrower_witness))}</td></tr>
           <tr><td><b>MDHAMINI</b></td><td>${esc(gname || "-")}${gphone ? ` (${esc(gphone)})` : ""}</td>
             <td class="sig">${esc(agr.guarantor_sign || "")}</td></tr>
           <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>${esc(agr.guarantor_witness || "-")}</td>
-            <td class="sig">${esc(agr.guarantor_witness_sign || "")}</td></tr>
+            <td class="sig">${esc(displaySign(agr.guarantor_witness_sign, agr.guarantor_witness))}</td></tr>
         </tbody>
       </table>
 
@@ -1515,8 +1517,8 @@
           <div class="form-text mb-2">Taarifa hizi zinatumika kwenye mikataba yote.
             <a href="#/settings">Zihariri hapa</a>.</div>
           <form id="signLender" class="row g-2">
-            <div class="col-md-4"><input class="form-control" name="witness" value="${esc((set && set.lender_witness) || "")}" placeholder="Shahidi wa mkopeshaji" maxlength="80" required></div>
-            <div class="col-md-4"><input class="form-control" name="witness_sign" value="${esc((set && set.lender_witness_sign) || "")}" placeholder="Saini ya shahidi" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="witness" value="${esc((set && set.lender_witness) || CFG.LENDER_WITNESS || "")}" placeholder="Shahidi wa mkopeshaji" maxlength="80" required></div>
+            <div class="col-md-4"><input class="form-control" name="witness_sign" value="${esc((set && set.lender_witness_sign) || signStyle((set && set.lender_witness) || CFG.LENDER_WITNESS || ""))}" placeholder="Saini ya shahidi" maxlength="80" required></div>
             <div class="col-md-4"><input class="form-control" name="sign" value="${esc((set && set.lender_sign) || "")}" placeholder="Andika jina la mkopeshaji" maxlength="80" required></div>
             <div class="col-12"><button class="btn btn-warning">Hifadhi saini ya mkopeshaji</button></div>
           </form></div>`;
@@ -1612,7 +1614,7 @@
       e.preventDefault(); const f = e.target;
       const vals = { p_loan_id: lid, p_sign: signStyle(f.sign.value).slice(0, 80),
         p_witness: capText(f.witness.value, 80),
-        p_witness_sign: signStyle(f.witness_sign.value).slice(0, 80),
+        p_witness_sign: signStyle(f.witness_sign.value || f.witness.value).slice(0, 80),
         p_place: capText(f.place.value, 120) };
       if (!(await settingsReady())) delete vals.p_witness_sign;
       const { error } = await sb.rpc("sign_borrower", vals);
@@ -1623,7 +1625,7 @@
     if (sl) sl.addEventListener("submit", async (e) => {
       e.preventDefault(); const f = e.target;
       const witness = capText(f.witness.value, 80);
-      const witnessSign = signStyle(f.witness_sign.value).slice(0, 80);
+      const witnessSign = signStyle(f.witness_sign.value || f.witness.value).slice(0, 80);
       const sign = signStyle(f.sign.value).slice(0, 80);
       const vals = { p_loan_id: lid, p_sign: sign, p_witness: witness, p_witness_sign: witnessSign };
       const ready = await settingsReady();
@@ -1701,10 +1703,10 @@
               value="${esc(s.lender_sign || "")}" placeholder="Mfano: A.C. mwanjoka" required></div>
           <div class="col-md-6"><label class="form-label">Jina la SHAHIDI WA MKOPESHAJI</label>
             <input class="form-control" name="lender_witness" maxlength="120"
-              value="${esc(s.lender_witness || "")}" required></div>
+              value="${esc(s.lender_witness || CFG.LENDER_WITNESS || "")}" required></div>
           <div class="col-md-6"><label class="form-label">Saini ya SHAHIDI WA MKOPESHAJI</label>
             <input class="form-control" name="lender_witness_sign" maxlength="80"
-              value="${esc(s.lender_witness_sign || "")}" placeholder="Mfano: A.C. mwanjoka" required></div>
+              value="${esc(s.lender_witness_sign || signStyle(s.lender_witness || CFG.LENDER_WITNESS || ""))}" placeholder="Mfano: A.C. mwanjoka" required></div>
           <div class="col-12"><button class="btn btn-primary">
             <i class="bi bi-check-lg"></i> Hifadhi na usasishe mikataba yote</button></div>
         </form>
@@ -1715,7 +1717,7 @@
       const { error } = await sb.rpc("save_app_settings", {
         p_lender_name: capText(f.lender_name.value, 120),
         p_lender_witness: capText(f.lender_witness.value, 120),
-        p_lender_witness_sign: signStyle(f.lender_witness_sign.value).slice(0, 80),
+        p_lender_witness_sign: signStyle(f.lender_witness_sign.value || f.lender_witness.value).slice(0, 80),
         p_lender_sign: signStyle(f.lender_sign.value).slice(0, 80)
       });
       if (error) return toast(error.message, "danger");

@@ -107,15 +107,15 @@
       <tr><td><b>MKOPESHAJI</b></td><td>{{ settings.lender_name or g.lender }}</td>
           <td class="sig">{{ settings.lender_sign or g.lender_sign or '' }}</td></tr>
       <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>{{ settings.lender_witness or g.lender_witness or '-' }}</td>
-          <td class="sig">{{ settings.lender_witness_sign or g.lender_witness_sign or '' }}</td></tr>
+          <td class="sig">{{ display_sign(settings.lender_witness_sign or g.lender_witness_sign, settings.lender_witness or g.lender_witness) }}</td></tr>
       <tr><td><b>MKOPAJI</b></td><td>{{ g.borrower }}</td>
           <td class="sig">{{ g.borrower_sign }}</td></tr>
       <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>{{ g.borrower_witness }}</td>
-          <td class="sig">{{ g.borrower_witness_sign or '' }}</td></tr>
+          <td class="sig">{{ display_sign(g.borrower_witness_sign, g.borrower_witness) }}</td></tr>
       <tr><td><b>MDHAMINI</b></td><td>{{ g.guarantor or '-' }}{% if g.guarantor_phone %} ({{ g.guarantor_phone }}){% endif %}</td>
           <td class="sig">{{ g.guarantor_sign or '' }}</td></tr>
       <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>{{ g.guarantor_witness or '-' }}</td>
-          <td class="sig">{{ g.guarantor_witness_sign or '' }}</td></tr>
+          <td class="sig">{{ display_sign(g.guarantor_witness_sign, g.guarantor_witness) }}</td></tr>
     </tbody>
   </table>
 

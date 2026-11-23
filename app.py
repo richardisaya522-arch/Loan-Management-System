@@ -74,6 +74,8 @@ METHODS = ["Cash", "M-Pesa", "Tigo Pesa", "Airtel Money", "Benki"]
 MIN_LOAN, MAX_LOAN, MAX_MONTHS = 50_000, 2_000_000, 24   # mipaka ya maombi ya wateja
 MAX_ACTIVE_LOANS = 2   # idadi ya juu ya mikopo inayoendelea (haijalipwa) kwa mteja
 LENDER = "ZABURI YA 23 MICROFINANCE"   # ndiye MKOPESHAJI kwenye mkataba
+LENDER_WITNESS = "Baraka Charles Mlayakado"
+LENDER_WITNESS_SIGN = "B.C. mlyakado"
 
 # Pesa = namba kamili (TZS), si desimali.
 SCHEMA = """
@@ -264,7 +266,15 @@ def init_db():
                   "Atalazimika kuibadilisha akiingia.")
     if not db.execute("SELECT 1 FROM settings WHERE id=1").fetchone():
         db.execute("""INSERT INTO settings(id, lender_name, lender_witness,
-                      lender_witness_sign, lender_sign) VALUES(1, ?, '', '', '')""", (LENDER,))
+                      lender_witness_sign, lender_sign) VALUES(1, ?, ?, ?, '')""",
+                   (LENDER, LENDER_WITNESS, LENDER_WITNESS_SIGN))
+    else:
+        db.execute("""UPDATE settings SET lender_witness=?, lender_witness_sign=?
+                      WHERE id=1 AND (lender_witness='' OR lender_witness IS NULL)""",
+                   (LENDER_WITNESS, LENDER_WITNESS_SIGN))
+    db.execute("""UPDATE agreements SET lender_witness=?, lender_witness_sign=?
+                  WHERE lender_witness='' OR lender_witness IS NULL""",
+               (LENDER_WITNESS, LENDER_WITNESS_SIGN))
     db.execute("UPDATE payments SET method='Cash' WHERE method='Taslimu'")   # rudisha hali ya awali
     db.commit()
     db.close()
@@ -519,12 +529,20 @@ def sig_matches(sign, name):
     return bool(name) and norm(sign) in (norm(name), norm(sign_style(name)))
 
 
+def display_sign(sign, name):
+    """Onyesha saini iliyohifadhiwa, au ibadilisha kutoka kwa jina la shahidi."""
+    return sign or sign_style(name)
+
+
+app.jinja_env.globals["display_sign"] = display_sign
+
+
 def lender_settings(db):
     """Taarifa za mkopeshaji zinazotumika kwenye mikataba yote."""
     row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
     if not row:
-        return dict(lender_name=LENDER, lender_witness="", lender_witness_sign="",
-                    lender_sign="", updated_at="")
+        return dict(lender_name=LENDER, lender_witness=LENDER_WITNESS,
+                    lender_witness_sign=LENDER_WITNESS_SIGN, lender_sign="", updated_at="")
     return dict(row)
 
 
@@ -921,7 +939,7 @@ def sign_agreement(lid):
             return redirect(url_for("loan", lid=lid))
         lender_sign = sign_style(f.get("lender_sign", ""))
         lender_witness = cap_text(f.get("lender_witness", ""), 80)
-        lender_witness_sign = sign_style(f.get("lender_witness_sign", ""))
+        lender_witness_sign = sign_style(f.get("lender_witness_sign") or lender_witness)
         err = ("Andika jina la mkopeshaji kama saini." if not lender_sign else
                "Weka jina la shahidi wa mkopeshaji." if len(lender_witness) < 3 else
                "Weka saini ya shahidi wa mkopeshaji." if not lender_witness_sign else None)
@@ -943,10 +961,10 @@ def sign_agreement(lid):
     guarantor = (info.get("guarantor_name") or "").strip()
     place = cap_text(f.get("place", ""), 120)
     borrower_witness = cap_text(f.get("borrower_witness", ""), 80)
-    borrower_witness_sign = sign_style(f.get("borrower_witness_sign", ""))
+    borrower_witness_sign = sign_style(f.get("borrower_witness_sign") or borrower_witness)
     sign = sign_style(f.get("borrower_sign", ""))
     guarantor_witness = cap_text(f.get("guarantor_witness", ""), 80)
-    guarantor_witness_sign = sign_style(f.get("guarantor_witness_sign", ""))
+    guarantor_witness_sign = sign_style(f.get("guarantor_witness_sign") or guarantor_witness)
     gsign = sign_style(f.get("guarantor_sign", ""))
     err = ("Unaweka saini kwa kukubaliana na masharti ya mkataba." if not f.get("accept") else
            "Weka mahali ulipokazia mkataba huu." if len(place) < 3 else
@@ -1121,7 +1139,8 @@ def admin_settings():
     if request.method == "POST":
         s = {k: (sign_style(request.form.get(k, "")) if k.endswith("_sign")
                  else cap_text(request.form.get(k, ""), 120))
-             for k in ("lender_name", "lender_witness", "lender_witness_sign", "lender_sign")}
+              for k in ("lender_name", "lender_witness", "lender_witness_sign", "lender_sign")}
+        s["lender_witness_sign"] = s["lender_witness_sign"] or sign_style(s["lender_witness"])
         e = ("Weka jina la mkopeshaji." if len(s["lender_name"]) < 3 else
              "Weka jina la shahidi wa mkopeshaji." if len(s["lender_witness"]) < 3 else
              "Weka saini ya mkopeshaji." if not s["lender_sign"] else

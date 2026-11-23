@@ -63,7 +63,8 @@ create table if not exists public.agreements (
   signed_on date,
   accepted boolean not null default false,
   lender text default '',
-  lender_witness text default '',
+  lender_witness text default 'Baraka Charles Mlayakado',
+  lender_witness_sign text default 'B.C. mlyakado',
   lender_sign text default '',
   guarantor text default '',
   guarantor_phone text default '',
@@ -899,6 +900,10 @@ select pg_notify('pgrst', 'reload schema');
 -- ---------------------------------------------------------------------
 -- Baada ya SQL hii, endesha pia:
 --   supabase/migrations/20261123120000_contract_signatures_settings.sql
--- Inaongeza saini za mashahidi wote kwenye mkataba na taarifa za
--- mkopeshaji zinazosasisha mikataba yote kwa wakati mmoja.
+--   supabase/migrations/20261123130000_lender_witness_default.sql
+--   supabase/migrations/20261123131000_signature_initials_case.sql
+-- Ya kwanza inaongeza saini za mashahidi wote kwenye mkataba na taarifa za
+-- mkopeshaji zinazosasisha mikataba yote kwa wakati mmoja. Ya pili inaweka
+-- shahidi wa mkopeshaji Baraka Charles Mlayakado / B.C. mlyakado; ya tatu
+-- inarekebisha herufi kubwa za saini zinazotokana na majina.
 -- ---------------------------------------------------------------------

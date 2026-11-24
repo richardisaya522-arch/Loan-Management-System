@@ -8,6 +8,8 @@
     <div class="d-flex align-items-center gap-2">
       <span class="badge {{ 'text-bg-success' if c.profile_done else 'text-bg-secondary' }}">
         {{ 'Fomu imejazwa' if c.profile_done else 'Fomu bado haijajazwa' }}</span>
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('customer_edit', cid=c.id) }}">
+        <i class="bi bi-pencil"></i> Hariri taarifa</a>
       {% if has_user %}
       <form method="post" action="{{ url_for('reset_customer_password', cid=c.id) }}"
             onsubmit="return confirm('Weka upya password ya {{ c.name }}? Password ya muda itaonyeshwa.')">

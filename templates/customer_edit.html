@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Hariri mteja | ZABURI YA 23 MICROFINANCE{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h4 class="fw-bold mb-1">Hariri taarifa za mteja</h4>
+      <p class="text-muted small mb-3">{{ c.name }} &middot; {{ c.phone }}</p>
+      <div class="alert alert-warning py-2 small">
+        <i class="bi bi-exclamation-triangle"></i> Ikiwa namba ya simu itabadilika, mteja atakuingia na namba mpya. Hakikisha taarifa zilizosahihishwa ni za kweli.
+      </div>
+
+      <form method="post" novalidate>
+        <input type="hidden" name="csrf" value="{{ csrf() }}">
+
+        <div class="form-section">Taarifa za mteja</div>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="name">Jina kamili</label>
+            <input class="form-control {{ 'is-invalid' if e.get('name') }}" id="name" name="name"
+                   value="{{ f.get('name', '') }}" placeholder="Mfano: Amina Juma Mohamed" required>
+            <div class="invalid-feedback">{{ e.get('name') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="phone">Namba ya simu</label>
+            <input class="form-control {{ 'is-invalid' if e.get('phone') }}" id="phone" name="phone"
+                   value="{{ f.get('phone', '') }}" placeholder="0712345678" inputmode="tel" required>
+            <div class="invalid-feedback">{{ e.get('phone') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="occupation">Kazi anayofanya</label>
+            <input class="form-control {{ 'is-invalid' if e.get('occupation') }}" id="occupation" name="occupation"
+                   value="{{ f.get('occupation', '') }}" placeholder="Mfano: Mkulima / Biashara">
+            <div class="invalid-feedback">{{ e.get('occupation') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="email">Barua pepe (email)</label>
+            <input class="form-control {{ 'is-invalid' if e.get('email') }}" type="email" id="email" name="email"
+                   value="{{ f.get('email', '') }}" placeholder="Mfano: amina@mfano.com">
+            <div class="invalid-feedback">{{ e.get('email') or '' }}</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="address">Anwani / makazi</label>
+            <input class="form-control {{ 'is-invalid' if e.get('address') }}" id="address" name="address"
+                   value="{{ f.get('address', '') }}" placeholder="Mfano: Kinondoni, Dar es Salaam">
+            <div class="invalid-feedback">{{ e.get('address') or '' }}</div>
+          </div>
+        </div>
+
+        <div class="form-section">Taarifa za Mdhamini</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="guarantor_name">Jina kamili la mdhamini</label>
+            <input class="form-control {{ 'is-invalid' if e.get('guarantor_name') }}" id="guarantor_name"
+                   name="guarantor_name" value="{{ f.get('guarantor_name', '') }}"
+                   placeholder="Mfano: Juma Hassan Mrisho">
+            <div class="invalid-feedback">{{ e.get('guarantor_name') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="guarantor_phone">Simu ya mdhamini</label>
+            <input class="form-control {{ 'is-invalid' if e.get('guarantor_phone') }}" id="guarantor_phone"
+                   name="guarantor_phone" value="{{ f.get('guarantor_phone', '') }}" placeholder="0712345678">
+            <div class="invalid-feedback">{{ e.get('guarantor_phone') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="guarantor_address">Anwani ya mdhamini</label>
+            <input class="form-control {{ 'is-invalid' if e.get('guarantor_address') }}" id="guarantor_address"
+                   name="guarantor_address" value="{{ f.get('guarantor_address', '') }}"
+                   placeholder="Mfano: Kinondoni, Dar es Salaam">
+            <div class="invalid-feedback">{{ e.get('guarantor_address') or '' }}</div>
+          </div>
+        </div>
+
+        <div class="form-section">Akaunti ya benki (kwa malipo kwake)</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="bank_name">Jina la benki</label>
+            <input class="form-control {{ 'is-invalid' if e.get('bank_name') }}" id="bank_name"
+                   name="bank_name" value="{{ f.get('bank_name', '') }}" list="bankList"
+                   placeholder="Mfano: NMB Bank">
+            <datalist id="bankList">
+              <option>NMB Bank</option><option>CRDB Bank</option><option>NBC Bank</option>
+              <option>DTB Bank</option><option>KCB Bank</option><option>Equity Bank</option>
+              <option>Stanbic Bank</option><option>Mkombozi Bank</option><option>Azam Bank</option>
+              <option>UBA Bank</option><option>Exim Bank</option><option>Yanfu Bank</option>
+            </datalist>
+            <div class="invalid-feedback">{{ e.get('bank_name') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="bank_account">Namba ya akaunti</label>
+            <input class="form-control {{ 'is-invalid' if e.get('bank_account') }}" id="bank_account"
+                   name="bank_account" value="{{ f.get('bank_account', '') }}"
+                   placeholder="Mfano: 015012345678">
+            <div class="invalid-feedback">{{ e.get('bank_account') or '' }}</div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <button class="btn btn-primary btn-lg" type="submit"><i class="bi bi-check-lg"></i> Hifadhi mabadiliko</button>
+          <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('customer', cid=c.id) }}">Rudi kwa mteja</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

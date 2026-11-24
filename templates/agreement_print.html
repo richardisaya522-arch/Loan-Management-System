@@ -21,6 +21,7 @@
     .sign th { border:1px solid #999; padding:.5rem; background:#f2f2f2; text-transform:uppercase; font-size:.72rem; }
     .sign td { border:1px solid #999; padding:.55rem .5rem; height:74px; vertical-align:top; }
     .sign .sig { font-style:italic; font-size:1.05rem; }
+    .sign .sigline { display:inline-block; min-width:180px; border-bottom:1px solid #555; }
     .note { font-size:.78rem; color:#555; margin-top:1.4rem; border-top:1px solid #ccc; padding-top:.6rem; }
     button { display:block; margin:1.6rem auto 0; padding:.5rem 1.3rem; cursor:pointer; }
     @media print { button { display:none; } body { margin:0; padding:0; } .sign td { height:96px; } }
@@ -35,13 +36,13 @@
     Mkataba huu umetiwa saini leo tarehe <b>{{ g.signed_on }}</b> mwezi
     <b>{{ g.signed_on[5:7] }}</b>, mwaka <b>{{ g.signed_on[:4] }}</b> mahali
     <b>{{ g.place }}</b>, kwa hati ya <b>MKOPESHAJI</b> ambaye ni
-    <b>{{ settings.lender_name or g.lender }}</b> (ninajitambulisha kama &ldquo;MKOPESHAJI&rdquo;)
+    <b>{{ g.lender or LENDER_NAME }}</b> (ninajitambulisha kama &ldquo;MKOPESHAJI&rdquo;)
   </p>
 
   <p><b>NA</b></p>
 
   <p>
-    Kwa upande wa pili ndugu atafahamika kuwa <b>MKOPAJI</b> wa {{ settings.lender_name or g.lender }},
+    Kwa upande wa pili ndugu atafahamika kuwa <b>MKOPAJI</b> wa {{ g.lender or LENDER_NAME }},
     ambaye amekubaliwa kama ifuatavyo:
   </p>
 
@@ -104,18 +105,16 @@
   <table class="sign">
     <thead><tr><th style="width:30%">Naibu</th><th style="width:35%">Jina</th><th>Sahihi</th></tr></thead>
     <tbody>
-      <tr><td><b>MKOPESHAJI</b></td><td>{{ settings.lender_name or g.lender }}</td>
-          <td class="sig">{{ settings.lender_sign or g.lender_sign or '' }}</td></tr>
-      <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>{{ settings.lender_witness or g.lender_witness or '-' }}</td>
-          <td class="sig">{{ display_sign(settings.lender_witness_sign or g.lender_witness_sign, settings.lender_witness or g.lender_witness) }}</td></tr>
+      <tr><td><b>MKOPESHAJI</b></td><td>{{ g.lender or LENDER_NAME }}</td>
+          <td class="sig"><span class="sigline">{{ g.lender_sign or '' }}</span></td></tr>
+      <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>{{ LENDER_WITNESS }}</td>
+          <td class="sig"><span class="sigline">{{ LENDER_WITNESS_SIGN }}</span></td></tr>
       <tr><td><b>MKOPAJI</b></td><td>{{ g.borrower }}</td>
-          <td class="sig">{{ g.borrower_sign }}</td></tr>
+          <td class="sig"><span class="sigline">{{ g.borrower_sign or '' }}</span></td></tr>
       <tr><td><b>SHAHIDI WA MKOPAJI</b></td><td>{{ g.borrower_witness }}</td>
-          <td class="sig">{{ display_sign(g.borrower_witness_sign, g.borrower_witness) }}</td></tr>
+          <td class="sig"><span class="sigline">{{ display_sign(g.borrower_witness_sign, g.borrower_witness) }}</span></td></tr>
       <tr><td><b>MDHAMINI</b></td><td>{{ g.guarantor or '-' }}{% if g.guarantor_phone %} ({{ g.guarantor_phone }}){% endif %}</td>
           <td class="sig">{{ g.guarantor_sign or '' }}</td></tr>
-      <tr><td><b>SHAHIDI WA MDHAMINI</b></td><td>{{ g.guarantor_witness or '-' }}</td>
-          <td class="sig">{{ display_sign(g.guarantor_witness_sign, g.guarantor_witness) }}</td></tr>
     </tbody>
   </table>
 

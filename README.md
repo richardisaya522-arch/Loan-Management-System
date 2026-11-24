@@ -86,12 +86,18 @@ npx.cmd --yes supabase@latest functions deploy complete-password-change --use-ap
 
 ### 5c. Mkataba kamili wakati wa ombi
 - Mteja anajaza mkataba (mahali, tarehe ya kusaini, shahidi wa mkopaji, mdhamini,
-  shahidi wa mdhamini, dhamana 1–3 na thamani) wakati wa kuomba mkopo.
+  dhamana 1–3 na thamani) wakati wa kuomba mkopo.
 - Admin anaona mkataba kwenye ukaguzi, anaweza kutuma ujumbe wa marekebisho, au
   kuidhinisha/kukataa. Mteja anaweza kurekebisha na kutuma tena akiwa pending.
 - Riba, jumla ya kulipa na tarehe ya mwisho huwekwa na ofisi wakati wa idhini;
   kabla ya hapo mkataba huonyesha "Itawekwa baada ya idhini".
 - Mkataba unaweza kuchapishwa (Ctrl+P / kuhifadhi PDF) na mteja na admin.
+- Jina la chapa `ZABURI YA 23 MICROFINANCE` linatumika kwenye UI/kichwa pekee;
+  MKOPESHAJI kwenye mkataba ni `Anthony Charles Mwanjoka`. Admin anajaza jina
+  kamili (majina matatu hasa) na saini yake (`A.C. mwanjoka`) wakati wa kusaini
+  mkopo husika; hazisahihishi mikataba mingine.
+- Shahidi wa MKOPESHAJI ni `Baraka Charles Mlayakado` / `B.C. mlyakado`,
+  anawekwa kiotomatiki na haonekani kwenye fomu wala ukurasa wa kuhariri.
 - Usalama: akikaa **dakika 10 bila shughuli**, mfumo unamtoa kwenye kikao na
   kupakia upya ukurasa; ni lazima aingie tena na password yake.
 - Pandisha migration: `npx.cmd --yes supabase@latest db push --linked --yes`

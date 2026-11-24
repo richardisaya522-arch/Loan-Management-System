@@ -62,7 +62,7 @@ create table if not exists public.agreements (
   borrower_place text default '',
   signed_on date,
   accepted boolean not null default false,
-  lender text default '',
+  lender text default 'Anthony Charles Mwanjoka',
   lender_witness text default 'Baraka Charles Mlayakado',
   lender_witness_sign text default 'B.C. mlyakado',
   lender_sign text default '',
@@ -902,8 +902,12 @@ select pg_notify('pgrst', 'reload schema');
 --   supabase/migrations/20261123120000_contract_signatures_settings.sql
 --   supabase/migrations/20261123130000_lender_witness_default.sql
 --   supabase/migrations/20261123131000_signature_initials_case.sql
--- Ya kwanza inaongeza saini za mashahidi wote kwenye mkataba na taarifa za
--- mkopeshaji zinazosasisha mikataba yote kwa wakati mmoja. Ya pili inaweka
+--   supabase/migrations/20261124120000_remove_guarantor_witness.sql
+--   supabase/migrations/20261124130000_lender_identity_fixed_witness.sql
+-- Ya kwanza inaongeza saini za mashahidi wote kwenye mkataba. Ya pili inaweka
 -- shahidi wa mkopeshaji Baraka Charles Mlayakado / B.C. mlyakado; ya tatu
--- inarekebisha herufi kubwa za saini zinazotokana na majina.
+-- inarekebisha herufi kubwa za saini zinazotokana na majina. Ya nne inaondoa
+-- SHAHIDI WA MDHAMINI kwenye mkataba. Ya tano inatenganisha chapa na MKOPESHAJI
+-- Anthony Charles Mwanjoka, inalazimisha jina matatu + saini kifupi kwa mkopo
+-- husika, na kufanya shahidi wa mkopeshaji kuwa wa kudumu bila kuharirika.
 -- ---------------------------------------------------------------------

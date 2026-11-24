@@ -3,7 +3,7 @@
 > Faili la kuendeleza kazi. Sasisha kila kikao.
 
 ## Tarehe ya mwisho
-2026-11-16
+2026-11-24
 
 ## Lengo
 Mfumo wa kukopesha (ZABURI YA 23 MICROFINANCE). Lengo la sasa: **app tuli (HTML/JS) + Supabase**
@@ -157,6 +157,10 @@ inayohost kwenye **GitHub Pages**.
 - **Namba ya admin:** `0700000000` → `0750851093` (profiles.username, customers.phone,
   auth metadata); audit entry `admin_phone_change` imeongezwa. Login kwa simu mpya
   inafuata `customers.phone` → auth email.
+- **Production reset (2026-11-16):** data yote ya majaribio ilifutwa — loans 4, payments 7,
+  agreements 4, audit 49, customers 4, profiles 3 zisizo za admin; `auth.users` zisizo za
+  admin zimefutwa; IDs zimeanzishwa upya kuanzia 1. Admin pekee amebaki
+  (`0750851093` / `officiallytony520@gmail.com`). Mfumo uko tayari kwa wateja wapya.
 
 ## Inayofuata
 1. **Imekamilika:** `docs/` imepushwa `main` (git iko safi, ahead=0/behind=0).
@@ -229,3 +233,14 @@ npx.cmd --yes supabase@latest functions deploy complete-password-change --use-ap
 # Email ya password ya muda (Resend)
 npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM="ZABURI YA 23 <no-reply@domain-yako>" APP_URL="https://richardisaya522-arch.github.io/Loan-Management-System/" --project-ref ghxahscpxobuoorgyedn
 ```
+
+## Sasisho 2026-11-24
+- Chapa (`ZABURI YA 23 MICROFINANCE`) imetenganishwa na MKOPESHAJI
+  (`Anthony Charles Mwanjoka`) kwenye mikataba.
+- Admin anaweka majina matatu na saini yake kwenye fomu ya saini ya mkopo husika;
+  saini ni kifupi tu (`A.C. mwanjoka`). Ukurasa wa kuhariri mkopeshaji umeondolewa.
+- Shahidi wa mkopeshaji (`Baraka Charles Mlayakado` / `B.C. mlyakado`) ni wa kudumu,
+  anawekwa kiotomatiki kwenye Flask na Supabase. SHAHIDI WA MDHAMINI iliondolewa.
+- Migration: `20261124120000_remove_guarantor_witness.sql` na
+  `20261124130000_lender_identity_fixed_witness.sql`.
+- Saini ya shahidi wa mkopaji sasa inaonekana wazi kwenye karatasi ya kuchapisha.

@@ -73,7 +73,8 @@ LIVE_APP_URL = os.environ.get(
 METHODS = ["Cash", "M-Pesa", "Tigo Pesa", "Airtel Money", "Benki"]
 MIN_LOAN, MAX_LOAN, MAX_MONTHS = 50_000, 2_000_000, 24   # mipaka ya maombi ya wateja
 MAX_ACTIVE_LOANS = 2   # idadi ya juu ya mikopo inayoendelea (haijalipwa) kwa mteja
-LENDER = "ZABURI YA 23 MICROFINANCE"   # ndiye MKOPESHAJI kwenye mkataba
+BRAND = "ZABURI YA 23 MICROFINANCE"   # jina la biashara / online identity
+LENDER_NAME = "Anthony Charles Mwanjoka"   # MKOPESHAJI kwenye mkataba
 LENDER_WITNESS = "Baraka Charles Mlayakado"
 LENDER_WITNESS_SIGN = "B.C. mlyakado"
 
@@ -91,7 +92,8 @@ CREATE TABLE IF NOT EXISTS users(
   id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','customer')),
   customer_id INTEGER REFERENCES customers(id),
-  must_change_password INTEGER NOT NULL DEFAULT 0);
+  must_change_password INTEGER NOT NULL DEFAULT 0,
+  name TEXT, email TEXT, phone TEXT);
 CREATE TABLE IF NOT EXISTS loans(
   id INTEGER PRIMARY KEY,
   customer_id INTEGER NOT NULL REFERENCES customers(id),
@@ -120,11 +122,6 @@ CREATE TABLE IF NOT EXISTS agreements(
   collateral_1 TEXT, collateral_2 TEXT, collateral_3 TEXT, collateral_value INTEGER,
   accepted INTEGER NOT NULL DEFAULT 0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS settings(
-  id INTEGER PRIMARY KEY CHECK(id = 1),
-  lender_name TEXT NOT NULL, lender_witness TEXT,
-  lender_witness_sign TEXT, lender_sign TEXT,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS audit(
   id INTEGER PRIMARY KEY, actor TEXT, action TEXT NOT NULL,
   target TEXT, details TEXT, ip TEXT,
@@ -137,7 +134,8 @@ MIGRATIONS = {  # kwa database ya zamani isiyo na safu hizi
                   ("guarantor_address", "TEXT"),
                   ("bank_name", "TEXT"), ("bank_account", "TEXT")],
     "users": [("role", "TEXT NOT NULL DEFAULT 'admin'"), ("customer_id", "INTEGER"),
-              ("must_change_password", "INTEGER NOT NULL DEFAULT 0")],
+              ("must_change_password", "INTEGER NOT NULL DEFAULT 0"),
+              ("name", "TEXT"), ("email", "TEXT"), ("phone", "TEXT")],
     "loans": [("decision", "TEXT NOT NULL DEFAULT 'approved'"), ("purpose", "TEXT"),
               ("review_note", "TEXT"), ("applied_at", "TEXT")],
     "agreements": [("guarantor", "TEXT"), ("guarantor_phone", "TEXT"),
@@ -264,17 +262,16 @@ def init_db():
             db.execute("UPDATE users SET must_change_password=1 WHERE id=?", (u[0],))
             print("ONYO: admin bado anatumia password ya kawaida. "
                   "Atalazimika kuibadilisha akiingia.")
-    if not db.execute("SELECT 1 FROM settings WHERE id=1").fetchone():
-        db.execute("""INSERT INTO settings(id, lender_name, lender_witness,
-                      lender_witness_sign, lender_sign) VALUES(1, ?, ?, ?, '')""",
-                   (LENDER, LENDER_WITNESS, LENDER_WITNESS_SIGN))
-    else:
-        db.execute("""UPDATE settings SET lender_witness=?, lender_witness_sign=?
-                      WHERE id=1 AND (lender_witness='' OR lender_witness IS NULL)""",
-                   (LENDER_WITNESS, LENDER_WITNESS_SIGN))
-    db.execute("""UPDATE agreements SET lender_witness=?, lender_witness_sign=?
-                  WHERE lender_witness='' OR lender_witness IS NULL""",
-               (LENDER_WITNESS, LENDER_WITNESS_SIGN))
+    db.execute("""UPDATE agreements SET lender=?,
+                  lender_sign=CASE WHEN lender_sign IS NULL OR lender_sign=''
+                                   THEN lender_sign ELSE ? END,
+                  lender_witness=?, lender_witness_sign=?
+                  WHERE lender IS NULL OR lender='' OR lender!=?
+                     OR (lender_sign IS NOT NULL AND lender_sign!='')
+                     OR lender_witness IS NULL OR lender_witness=''
+                     OR lender_witness_sign IS NULL OR lender_witness_sign=''""",
+               (LENDER_NAME, sign_style(LENDER_NAME), LENDER_WITNESS,
+                LENDER_WITNESS_SIGN, LENDER_NAME))
     db.execute("UPDATE payments SET method='Cash' WHERE method='Taslimu'")   # rudisha hali ya awali
     db.commit()
     db.close()
@@ -537,30 +534,26 @@ def display_sign(sign, name):
 app.jinja_env.globals["display_sign"] = display_sign
 
 
-def lender_settings(db):
-    """Taarifa za mkopeshaji zinazotumika kwenye mikataba yote."""
-    row = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
-    if not row:
-        return dict(lender_name=LENDER, lender_witness=LENDER_WITNESS,
-                    lender_witness_sign=LENDER_WITNESS_SIGN, lender_sign="", updated_at="")
-    return dict(row)
+def lender_name_value(value):
+    """Jina la MKOPESHAJI: majina matatu hasa, kila neno halali."""
+    s = cap_text(value, 120)
+    parts = s.split()
+    if len(parts) != 3 or any(not re.fullmatch(r"[A-Za-z][A-Za-z'-]*", p) for p in parts):
+        return ""
+    return s
 
 
-def save_lender_settings(db, values):
-    """Hifadhi taarifa za mkopeshaji na uzisasisha kwenye mikataba yote iliyopo."""
-    db.execute("""INSERT INTO settings(id, lender_name, lender_witness,
-                  lender_witness_sign, lender_sign, updated_at)
-                  VALUES(1,?,?,?,?,CURRENT_TIMESTAMP)
-                  ON CONFLICT(id) DO UPDATE SET lender_name=excluded.lender_name,
-                  lender_witness=excluded.lender_witness,
-                  lender_witness_sign=excluded.lender_witness_sign,
-                  lender_sign=excluded.lender_sign, updated_at=CURRENT_TIMESTAMP""",
-               (values["lender_name"], values["lender_witness"],
-                values["lender_witness_sign"], values["lender_sign"]))
-    db.execute("""UPDATE agreements SET lender=?, lender_witness=?,
-                  lender_witness_sign=?, lender_sign=?""",
-               (values["lender_name"], values["lender_witness"],
-                values["lender_witness_sign"], values["lender_sign"]))
+def lender_sign_value(value, name):
+    """Saini ya MKOPESHAJI: kifupi cha majina yake tu, mfano A.C. mwanjoka."""
+    s = cap_text(value, 80)
+    expected = sign_style(name)
+    return expected if s and expected and s.lower() == expected.lower() else ""
+
+
+app.jinja_env.globals.update(
+    BRAND=BRAND, LENDER_NAME=LENDER_NAME,
+    LENDER_WITNESS=LENDER_WITNESS, LENDER_WITNESS_SIGN=LENDER_WITNESS_SIGN,
+)
 
 
 # ---------- Usajili na login ----------
@@ -676,6 +669,46 @@ def change_password():
     return render_template("password.html", e=e)
 
 
+# ---------- Akaunti ya admin ----------
+@app.route("/admin/account", methods=["GET", "POST"])
+@admin_required
+def admin_account():
+    db = get_db()
+    u = db.execute("SELECT * FROM users WHERE username=?", (session["user"],)).fetchone() or abort(404)
+    e = {}
+    if request.method == "POST":
+        f = {
+            "name": cap_text(request.form.get("name", ""), 120),
+            "username": request.form.get("username", "").strip()[:120],
+            "email": request.form.get("email", "").strip()[:160],
+            "phone": norm_phone(request.form.get("phone", "")),
+        }
+        if len(f["name"]) < 3:
+            e["name"] = "Andika jina lako kamili (angalau herufi 3)."
+        if not re.fullmatch(r"[A-Za-z0-9._@-]{3,120}", f["username"]):
+            e["username"] = "Jina la kuingia liwe angalau herufi 3; tumia herufi, namba, ., _, @ au -."
+        elif db.execute("SELECT 1 FROM users WHERE username=? AND id!=?", (f["username"], u["id"])).fetchone():
+            e["username"] = "Jina hili la kuingia linatumwa na mtu mwingine."
+        if f["email"] and not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", f["email"]):
+            e["email"] = "Barua pepe si sahihi. Mfano: jina@mfano.com"
+        if f["phone"] and not valid_phone(f["phone"]):
+            e["phone"] = "Namba ya simu si sahihi. Mfano: 0712345678"
+        elif f["phone"] and db.execute("SELECT 1 FROM customers WHERE phone=?", (f["phone"],)).fetchone():
+            e["phone"] = "Namba hii inatumwa na mteja."
+        if not e:
+            db.execute("UPDATE users SET name=?, username=?, email=?, phone=? WHERE id=?",
+                       (f["name"], f["username"], f["email"] or None, f["phone"] or None, u["id"]))
+            db.commit()
+            session["user"] = f["username"]
+            audit("admin.account_edit", f"user#{u['id']}", f["username"])
+            flash("Taarifa zako za akaunti zimehifadhiwa.", "success")
+            return redirect(url_for("admin_account"))
+        flash("Hakikisha taarifa za akaunti yako ni sahihi.", "danger")
+    else:
+        f = {k: (u[k] or "") for k in ("name", "username", "email", "phone")}
+    return render_template("admin_account.html", f=f, e=e)
+
+
 # ---------- Nimesahau password (mteja anajithibitisha) ----------
 @app.route("/forgot", methods=["GET", "POST"])
 def forgot():
@@ -770,6 +803,63 @@ def me():
     return render_template("me.html", c=c, rows=rows, today=today.isoformat())
 
 
+CUSTOMER_KEYS = ("name", "phone", "email", "address", "occupation",
+                 "guarantor_name", "guarantor_phone", "guarantor_address",
+                 "bank_name", "bank_account")
+
+
+def customer_form_data():
+    f = {k: (request.form.get(k, "").strip() if k == "email"
+             else cap_text(request.form.get(k, ""), 160)) for k in CUSTOMER_KEYS}
+    f["phone"], f["guarantor_phone"] = norm_phone(f["phone"]), norm_phone(f["guarantor_phone"])
+    return f
+
+
+def validate_customer(db, f, cid, strict=True):
+    e = {}
+    if len(f["name"].split()) < 3:
+        e["name"] = "Andika majina matatu kamili. Mfano: Amina Juma Mohamed."
+    if not valid_phone(f["phone"]):
+        e["phone"] = "Namba ya simu si sahihi. Mfano: 0712345678"
+    if f["email"] and not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", f["email"]):
+        e["email"] = "Barua pepe si sahihi. Mfano: jina@mfano.com"
+    if strict and len(f["address"]) < 3:
+        e["address"] = "Weka anwani yako ili tuweze kukuhusisha."
+    if strict and len(f["occupation"]) < 2:
+        e["occupation"] = "Eleza kazi unayofanya."
+    if strict and len(f["guarantor_name"].split()) < 3:
+        e["guarantor_name"] = "Andika majina matatu kamili ya mdhamini. Mfano: Juma Hassan Mrisho."
+    if (f["guarantor_phone"] or strict) and not valid_phone(f["guarantor_phone"]):
+        e["guarantor_phone"] = "Namba ya simu ya mdhamini si sahihi. Mfano: 0712345678"
+    if f["guarantor_phone"] and f["guarantor_phone"] == f["phone"]:
+        e["guarantor_phone"] = "Mdhamini asimame na namba yako mwenyewe."
+    if strict and len(f["guarantor_address"]) < 3:
+        e["guarantor_address"] = "Weka anwani ya mdhamini."
+    if f["bank_name"] and not f["bank_account"]:
+        e["bank_account"] = "Weka namba ya akaunti yako ya benki."
+    elif f["bank_account"] and not f["bank_name"]:
+        e["bank_name"] = "Weka jina la benki yenye akaunti yako."
+    elif f["bank_account"] and not re.fullmatch(r"[0-9A-Za-z -]{5,30}", f["bank_account"]):
+        e["bank_account"] = "Namba ya akaunti si sahihi. Mfano: 015012345678"
+    if not e and (db.execute("SELECT 1 FROM customers WHERE phone=? AND id!=?",
+                             (f["phone"], cid)).fetchone() or
+                  db.execute("SELECT 1 FROM users WHERE username=? AND customer_id!=?",
+                             (f["phone"], cid)).fetchone()):
+        e["phone"] = "Namba hii inatumwa na mtu mwingine."
+    return e
+
+
+def save_customer(db, cid, f, profile_done=False):
+    db.execute("""UPDATE customers SET name=?, phone=?, email=?, address=?,
+                  occupation=?, guarantor_name=?, guarantor_phone=?,
+                  guarantor_address=?, bank_name=?, bank_account=?{}
+                  WHERE id=?""".format(", profile_done=1" if profile_done else ""),
+               (f["name"], f["phone"], f["email"], f["address"],
+                f["occupation"], f["guarantor_name"], f["guarantor_phone"],
+                f["guarantor_address"], f["bank_name"], f["bank_account"], cid))
+    db.execute("UPDATE users SET username=? WHERE customer_id=?", (f["phone"], cid))
+
+
 @app.route("/profile", methods=["GET", "POST"])
 @customer_required
 def profile():
@@ -777,59 +867,17 @@ def profile():
     c = db.execute("SELECT * FROM customers WHERE id=?", (cid,)).fetchone() or abort(404)
     e = {}
     if request.method == "POST":
-        keys = ("name", "phone", "email", "address", "occupation",
-                "guarantor_name", "guarantor_phone", "guarantor_address",
-                "bank_name", "bank_account")
-        f = {k: (request.form.get(k, "").strip() if k == "email"
-                 else cap_text(request.form.get(k, ""), 160)) for k in keys}
-        f["phone"], f["guarantor_phone"] = norm_phone(f["phone"]), norm_phone(f["guarantor_phone"])
-        if len(f["name"].split()) < 3:
-            e["name"] = "Andika majina matatu kamili. Mfano: Amina Juma Mohamed."
-        if not valid_phone(f["phone"]):
-            e["phone"] = "Namba ya simu si sahihi. Mfano: 0712345678"
-        if f["email"] and not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", f["email"]):
-            e["email"] = "Barua pepe si sahihi. Mfano: jina@mfano.com"
-        if len(f["address"]) < 3:
-            e["address"] = "Weka anwani yako ili tuweze kukuhusisha."
-        if len(f["occupation"]) < 2:
-            e["occupation"] = "Eleza kazi unayofanya."
-        if len(f["guarantor_name"].split()) < 3:
-            e["guarantor_name"] = "Andika majina matatu kamili ya mdhamini. Mfano: Juma Hassan Mrisho."
-        if not valid_phone(f["guarantor_phone"]):
-            e["guarantor_phone"] = "Namba ya simu ya mdhamini si sahihi. Mfano: 0712345678"
-        if f["guarantor_phone"] and f["guarantor_phone"] == f["phone"]:
-            e["guarantor_phone"] = "Mdhamini asimame na namba yako mwenyewe."
-        if len(f["guarantor_address"]) < 3:
-            e["guarantor_address"] = "Weka anwani ya mdhamini."
-        if f["bank_name"] and not f["bank_account"]:
-            e["bank_account"] = "Weka namba ya akaunti yako ya benki."
-        elif f["bank_account"] and not f["bank_name"]:
-            e["bank_name"] = "Weka jina la benki yenye akaunti yako."
-        elif f["bank_account"] and not re.fullmatch(r"[0-9A-Za-z -]{5,30}", f["bank_account"]):
-            e["bank_account"] = "Namba ya akaunti si sahihi. Mfano: 015012345678"
-        if not e and (db.execute("SELECT 1 FROM customers WHERE phone=? AND id!=?",
-                                 (f["phone"], cid)).fetchone() or
-                      db.execute("SELECT 1 FROM users WHERE username=? AND customer_id!=?",
-                                 (f["phone"], cid)).fetchone()):
-            e["phone"] = "Namba hii inatumwa na mtu mwingine."
+        f = customer_form_data()
+        e = validate_customer(db, f, cid)
         if not e:
-            db.execute("""UPDATE customers SET name=?, phone=?, email=?, address=?,
-                          occupation=?, guarantor_name=?, guarantor_phone=?,
-                          guarantor_address=?, bank_name=?, bank_account=?, profile_done=1
-                          WHERE id=?""",
-                       (f["name"], f["phone"], f["email"], f["address"],
-                        f["occupation"], f["guarantor_name"], f["guarantor_phone"],
-                        f["guarantor_address"], f["bank_name"], f["bank_account"], cid))
-            db.execute("UPDATE users SET username=? WHERE customer_id=?", (f["phone"], cid))
+            save_customer(db, cid, f, profile_done=True)
             db.commit()
             audit("customer.profile", f"customer#{cid}", f["name"])
             flash("Taarifa zako zimehifadhiwa. Karibu kuomba mkopo.", "success")
             return redirect(url_for("apply"))
         flash("Hakikisha taarifa zako ni sahihi.", "danger")
     else:
-        f = {k: (c[k] or "") for k in ("name", "phone", "email", "address",
-                                       "occupation", "guarantor_name", "guarantor_phone",
-                                       "guarantor_address", "bank_name", "bank_account")}
+        f = {k: (c[k] or "") for k in CUSTOMER_KEYS}
         DEMO = {"email": "amina@email.com",
                 "address": "Kinondoni, Dar es Salaam", "occupation": "Mkulima / Biashara",
                 "guarantor_name": "Juma Hassan Mrisho", "guarantor_phone": "0754123456",
@@ -838,6 +886,7 @@ def profile():
             if not f[k]:
                 f[k] = v
     return render_template("profile.html", f=f, e=e)
+
 
 
 @app.route("/apply", methods=["GET", "POST"])
@@ -930,30 +979,27 @@ def sign_agreement(lid):
     last = info["rows"][-1]
     f = request.form
     existing = db.execute("SELECT * FROM agreements WHERE loan_id=?", (lid,)).fetchone()
-    settings = lender_settings(db)
 
     # MKOPESHAJI (admin) anasaini baada ya mkopaji kusaini.
     if session.get("role") == "admin":
         if not existing or not existing["accepted"]:
             flash("Mteja hajasaini mkataba bado. Subiri asaini kabla ya wewe.", "warning")
             return redirect(url_for("loan", lid=lid))
-        lender_sign = sign_style(f.get("lender_sign", ""))
-        lender_witness = cap_text(f.get("lender_witness", ""), 80)
-        lender_witness_sign = sign_style(f.get("lender_witness_sign") or lender_witness)
-        err = ("Andika jina la mkopeshaji kama saini." if not lender_sign else
-               "Weka jina la shahidi wa mkopeshaji." if len(lender_witness) < 3 else
-               "Weka saini ya shahidi wa mkopeshaji." if not lender_witness_sign else None)
+        lender_name = lender_name_value(f.get("lender_name", ""))
+        lender_sign = lender_sign_value(f.get("lender_sign", ""), lender_name)
+        err = ("Jina la MKOPESHAJI liwe majina matatu hasa, mfano Anthony Charles Mwanjoka."
+               if not lender_name else
+               f"Saini ya MKOPESHAJI iwe kifupi cha majina yake tu: {sign_style(lender_name)}."
+               if not lender_sign else None)
         if err:
             flash(err, "danger")
             return redirect(url_for("loan", lid=lid))
-        save_lender_settings(db, dict(
-            lender_name=cap_text(settings["lender_name"] or LENDER, 120),
-            lender_witness=lender_witness, lender_witness_sign=lender_witness_sign,
-            lender_sign=lender_sign))
+        db.execute("""UPDATE agreements SET lender=?, lender_witness=?,
+                      lender_witness_sign=?, lender_sign=? WHERE loan_id=?""",
+                   (lender_name, LENDER_WITNESS, LENDER_WITNESS_SIGN, lender_sign, lid))
         db.commit()
         audit("agreement.lender_sign", f"loan#{lid}", lender_sign)
-        flash("Mkataba umesainiwa upande wa mkopeshaji. Taarifa hizi zimetumika kwenye "
-              "mikataba yote.", "success")
+        flash("Mkataba umesainiwa upande wa mkopeshaji.", "success")
         return redirect(url_for("loan", lid=lid))
 
     # MKOPAJI (mteja) anasaini pamoja na MDHAMINI.
@@ -963,8 +1009,6 @@ def sign_agreement(lid):
     borrower_witness = cap_text(f.get("borrower_witness", ""), 80)
     borrower_witness_sign = sign_style(f.get("borrower_witness_sign") or borrower_witness)
     sign = sign_style(f.get("borrower_sign", ""))
-    guarantor_witness = cap_text(f.get("guarantor_witness", ""), 80)
-    guarantor_witness_sign = sign_style(f.get("guarantor_witness_sign") or guarantor_witness)
     gsign = sign_style(f.get("guarantor_sign", ""))
     err = ("Unaweka saini kwa kukubaliana na masharti ya mkataba." if not f.get("accept") else
            "Weka mahali ulipokazia mkataba huu." if len(place) < 3 else
@@ -978,8 +1022,6 @@ def sign_agreement(lid):
            "Weka saini ya mdhamini (andika jina la mdhamini)." if not gsign else
            f"Jina la saini ya mdhamini liwe kama jina la mdhamini: {guarantor}."
            if guarantor and not sig_matches(gsign, guarantor) else
-           "Weka jina la shahidi wa mdhamini." if len(guarantor_witness) < 3 else
-           "Weka saini ya shahidi wa mdhamini." if not guarantor_witness_sign else
            "Weka dhamana ya kwanza (kitu kinachowekwa kama dhamana)."
            if len(cap_text(f.get("collateral_1", ""), 160)) < 3 else
            "Weka thamani ya dhamana kwa TZS."
@@ -989,11 +1031,13 @@ def sign_agreement(lid):
         return redirect(url_for("loan", lid=lid))
     collateral_value = to_int(f.get("collateral_value"))
     db.execute("""INSERT INTO agreements
-        (loan_id, place, signed_on, purpose, principal, interest, total, period_months, repay_by,
-         borrower, borrower_witness, borrower_witness_sign, borrower_sign, lender,
-         guarantor, guarantor_phone, guarantor_sign, guarantor_witness, guarantor_witness_sign,
-         collateral_1, collateral_2, collateral_3, collateral_value, accepted)
+         (loan_id, place, signed_on, purpose, principal, interest, total, period_months, repay_by,
+           borrower, borrower_witness, borrower_witness_sign, borrower_sign, lender,
+           lender_witness, lender_witness_sign,
+           guarantor, guarantor_phone, guarantor_sign,
+           collateral_1, collateral_2, collateral_3, collateral_value, accepted)
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+
         ON CONFLICT(loan_id) DO UPDATE SET
           place=excluded.place, signed_on=excluded.signed_on, purpose=excluded.purpose,
           principal=excluded.principal, interest=excluded.interest, total=excluded.total,
@@ -1001,18 +1045,20 @@ def sign_agreement(lid):
           borrower=excluded.borrower, borrower_witness=excluded.borrower_witness,
           borrower_witness_sign=excluded.borrower_witness_sign,
           borrower_sign=excluded.borrower_sign, lender=excluded.lender,
+          lender_witness=excluded.lender_witness,
+          lender_witness_sign=excluded.lender_witness_sign,
           guarantor=excluded.guarantor, guarantor_phone=excluded.guarantor_phone,
-          guarantor_sign=excluded.guarantor_sign, guarantor_witness=excluded.guarantor_witness,
-          guarantor_witness_sign=excluded.guarantor_witness_sign,
+          guarantor_sign=excluded.guarantor_sign,
           collateral_1=excluded.collateral_1, collateral_2=excluded.collateral_2,
           collateral_3=excluded.collateral_3, collateral_value=excluded.collateral_value,
           accepted=1""",
-        (lid, place, to_date(f.get("signed_on")).isoformat(),
-         info["purpose"], info["principal"], info["interest"], info["total"], info["months"],
-         last["due"].isoformat(), borrower, borrower_witness, borrower_witness_sign, sign,
-         settings["lender_name"] or LENDER, guarantor or gsign,
-         (info.get("guarantor_phone") or "").strip(), gsign, guarantor_witness,
-         guarantor_witness_sign, cap_text(f.get("collateral_1", ""), 160),
+         (lid, place, to_date(f.get("signed_on")).isoformat(),
+          info["purpose"], info["principal"], info["interest"], info["total"], info["months"],
+          last["due"].isoformat(), borrower, borrower_witness, borrower_witness_sign, sign,
+          LENDER_NAME, LENDER_WITNESS, LENDER_WITNESS_SIGN, guarantor or gsign,
+           (info.get("guarantor_phone") or "").strip(), gsign,
+          cap_text(f.get("collateral_1", ""), 160),
+
          cap_text(f.get("collateral_2", ""), 160), cap_text(f.get("collateral_3", ""), 160),
          collateral_value))
     db.commit()
@@ -1032,7 +1078,7 @@ def agreement_row(gid):
 def agreement_print(gid):
     g = agreement_row(gid)
     own_or_admin(g)
-    return render_template("agreement_print.html", g=g, settings=lender_settings(get_db()))
+    return render_template("agreement_print.html", g=g)
 
 
 # ---------- Wateja (admin) ----------
@@ -1055,6 +1101,27 @@ def customer(cid):
     has_user = db.execute("SELECT 1 FROM users WHERE customer_id=? AND role='customer'",
                           (cid,)).fetchone() is not None
     return render_template("customer.html", c=c, loans=loans, has_user=has_user)
+
+
+@app.route("/customers/<int:cid>/edit", methods=["GET", "POST"])
+@admin_required
+def customer_edit(cid):
+    db = get_db()
+    c = db.execute("SELECT * FROM customers WHERE id=?", (cid,)).fetchone() or abort(404)
+    e = {}
+    if request.method == "POST":
+        f = customer_form_data()
+        e = validate_customer(db, f, cid, strict=False)
+        if not e:
+            save_customer(db, cid, f)
+            db.commit()
+            audit("customer.edit", f"customer#{cid}", f["name"])
+            flash("Taarifa za mteja zimesahihishwa.", "success")
+            return redirect(url_for("customer", cid=cid))
+        flash("Hakikisha taarifa za mteja ni sahihi.", "danger")
+    else:
+        f = {k: (c[k] or "") for k in CUSTOMER_KEYS}
+    return render_template("customer_edit.html", c=c, f=f, e=e)
 
 
 @app.post("/customers/<int:cid>/reset-password")
@@ -1130,33 +1197,6 @@ def audit_log():
     return render_template("audit.html", rows=rows)
 
 
-# ---------- Taarifa za mkopeshaji (zinazotumika kwenye mikataba yote) ----------
-@app.route("/admin/settings", methods=["GET", "POST"])
-@admin_required
-def admin_settings():
-    db = get_db()
-    e = {}
-    if request.method == "POST":
-        s = {k: (sign_style(request.form.get(k, "")) if k.endswith("_sign")
-                 else cap_text(request.form.get(k, ""), 120))
-              for k in ("lender_name", "lender_witness", "lender_witness_sign", "lender_sign")}
-        s["lender_witness_sign"] = s["lender_witness_sign"] or sign_style(s["lender_witness"])
-        e = ("Weka jina la mkopeshaji." if len(s["lender_name"]) < 3 else
-             "Weka jina la shahidi wa mkopeshaji." if len(s["lender_witness"]) < 3 else
-             "Weka saini ya mkopeshaji." if not s["lender_sign"] else
-             "Weka saini ya shahidi wa mkopeshaji." if not s["lender_witness_sign"] else None)
-        if e:
-            flash(e, "danger")
-        else:
-            save_lender_settings(db, s)
-            db.commit()
-            audit("settings.lender_update", "settings#1", s["lender_name"])
-            flash("Taarifa za mkopeshaji zimesasishwa kwenye mikataba yote.", "success")
-            return redirect(url_for("admin_settings"))
-    else:
-        s = lender_settings(db)
-    return render_template("admin_settings.html", s=s, e=e)
-
 
 # ---------- Mikopo ----------
 @app.route("/loans")
@@ -1193,8 +1233,7 @@ def loan(lid):
     pays = db.execute("SELECT * FROM payments WHERE loan_id=? ORDER BY paid_on DESC, id DESC", (lid,)).fetchall()
     agr = db.execute("SELECT * FROM agreements WHERE loan_id=?", (lid,)).fetchone()
     return render_template("loan.html", l=build(dict(row), date.today()), pays=pays,
-                           methods=METHODS, today=date.today().isoformat(), agr=agr,
-                           settings=lender_settings(db))
+                           methods=METHODS, today=date.today().isoformat(), agr=agr)
 
 
 @app.post("/loans/<int:lid>/pay")

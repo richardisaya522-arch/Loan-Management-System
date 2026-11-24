@@ -6,6 +6,7 @@ window.APP_CONFIG = {
   SUPABASE_URL: "https://ghxahscpxobuoorgyedn.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_q4N-ddNILt8SMgvvKBV8tw_U9lx2GAy",
   BRAND: "ZABURI YA 23 MICROFINANCE",
+  LENDER_NAME: "Anthony Charles Mwanjoka",
   LENDER_WITNESS: "Baraka Charles Mlayakado",
   LENDER_WITNESS_SIGN: "B.C. mlyakado",
   MIN_LOAN: 50000,

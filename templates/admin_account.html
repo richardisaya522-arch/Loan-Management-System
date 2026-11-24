@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Akaunti yangu | ZABURI YA 23 MICROFINANCE{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h4 class="fw-bold mb-1">Taarifa za akaunti ya admin</h4>
+      <p class="text-muted small mb-4">Sahihisha jina lako, jina la kuingia, barua pepe au namba ya simu. Mabadiliko yanaingia kwenye kumbukumbu.</p>
+      <form method="post" novalidate>
+        <input type="hidden" name="csrf" value="{{ csrf() }}">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="name">Jina kamili</label>
+            <input class="form-control {{ 'is-invalid' if e.get('name') }}" id="name" name="name"
+                   value="{{ f.get('name', '') }}" placeholder="Mfano: Richard Isaya" required>
+            <div class="invalid-feedback">{{ e.get('name') or '' }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="username">Jina la kuingia</label>
+            <input class="form-control {{ 'is-invalid' if e.get('username') }}" id="username" name="username"
+                   value="{{ f.get('username', '') }}" placeholder="Mfano: admin" autocomplete="username" required>
+            <div class="invalid-feedback">{{ e.get('username') or '' }}</div>
+            <div class="form-text">Ukilibadilisha, utatumia jina jipya unapoingia.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="phone">Namba ya simu</label>
+            <input class="form-control {{ 'is-invalid' if e.get('phone') }}" id="phone" name="phone"
+                   value="{{ f.get('phone', '') }}" placeholder="0712345678" inputmode="tel">
+            <div class="invalid-feedback">{{ e.get('phone') or '' }}</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="email">Barua pepe (email)</label>
+            <input class="form-control {{ 'is-invalid' if e.get('email') }}" type="email" id="email" name="email"
+                   value="{{ f.get('email', '') }}" placeholder="Mfano: jina@mfano.com" autocomplete="email">
+            <div class="invalid-feedback">{{ e.get('email') or '' }}</div>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Hifadhi taarifa</button>
+          <a class="btn btn-outline-secondary" href="{{ url_for('change_password') }}"><i class="bi bi-key"></i> Badilisha password</a>
+          <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">Rudi dashboard</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

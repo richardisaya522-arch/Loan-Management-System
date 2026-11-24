@@ -76,12 +76,14 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('payments') }}">Malipo</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('backups') }}">Nakala</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('audit_log') }}">Kumbukumbu</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_settings') }}">Mkopeshaji</a></li>
         {% elif session.role == 'customer' %}
         <li class="nav-item"><a class="nav-link" href="{{ url_for('me') }}">Akaunti yangu</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('apply') }}">Omba mkopo</a></li>
         {% endif %}
         {% if session.user %}
+        {% if session.role == 'admin' %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_account') }}">Akaunti yangu</a></li>
+        {% endif %}
         <li class="nav-item"><a class="nav-link" href="{{ url_for('change_password') }}">Badilisha password</a></li>
         {% endif %}
       </ul>

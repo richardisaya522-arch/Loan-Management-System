@@ -63,7 +63,7 @@ create table if not exists public.agreements (
   signed_on date,
   accepted boolean not null default false,
   lender text default 'Anthony Charles Mwanjoka',
-  lender_witness text default 'Doricas Charlse Malyonga',
+  lender_witness text default 'Doricas Charles Malyonga',
   lender_witness_sign text default 'D.C. malyonga',
   lender_sign text default '',
   guarantor text default '',
@@ -436,7 +436,7 @@ begin
   update public.agreements set
     lender = v_name,
     lender_sign = v_short,
-    lender_witness = 'Doricas Charlse Malyonga',
+    lender_witness = 'Doricas Charles Malyonga',
     lender_witness_sign = 'D.C. malyonga'
   where loan_id = p_loan_id;
 
@@ -669,7 +669,7 @@ begin
   update public.agreements set
     lender = v_name,
     lender_sign = v_short,
-    lender_witness = 'Doricas Charlse Malyonga',
+    lender_witness = 'Doricas Charles Malyonga',
     lender_witness_sign = 'D.C. malyonga'
   where loan_id = p_loan_id;
 
@@ -973,6 +973,7 @@ select pg_notify('pgrst', 'reload schema');
 --   supabase/migrations/20261124130000_lender_identity_fixed_witness.sql
 --   supabase/migrations/20261125090000_block_customer_delete_with_records.sql
 --   supabase/migrations/20261125100000_new_lender_witness.sql
+--   supabase/migrations/20261125110000_correct_lender_witness_spelling.sql
 -- Ya kwanza inaongeza saini za mashahidi wote kwenye mkataba. Ya pili inaweka
 -- shahidi wa mkopeshaji Baraka Charles Mlayakado / B.C. mlyakado; ya tatu
 -- inarekebisha herufi kubwa za saini zinazotokana na majina. Ya nne inaondoa
@@ -980,6 +981,7 @@ select pg_notify('pgrst', 'reload schema');
 -- Anthony Charles Mwanjoka, inalazimisha jina matatu + saini kifupi kwa mkopo
 -- husika, na kufanya shahidi wa mkopeshaji kuwa wa kudumu bila kuharirika. Ya
 -- sita inazuia kufuta mteja aliye na mikopo, malipo au mkataba. Ya saba
--- inamweka shahidi wa mkopeshaji Doricas Charlse Malyonga / D.C. malyonga
--- kwenye mikataba yote bila kugusa saini ya mkopeshaji.
+-- inamweka shahidi wa mkopeshaji Doricas Charles Malyonga / D.C. malyonga
+-- kwenye mikataba yote bila kugusa saini ya mkopeshaji. Ya nane inarekebisha
+-- tahajia ya "Charlse" kuwa "Charles".
 -- ---------------------------------------------------------------------

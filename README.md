@@ -104,7 +104,7 @@ aliye na mkopo, malipo au mkataba hafutiki; kizuizi hiko pia kwenye trigger ya d
   MKOPESHAJI kwenye mkataba ni `Anthony Charles Mwanjoka`. Admin anajaza jina
   kamili (majina matatu hasa) na saini yake (`A.C. mwanjoka`) wakati wa kusaini
   mkopo husika; hazisahihishi mikataba mingine.
-- Shahidi wa MKOPESHAJI ni `Doricas Charlse Malyonga` / `D.C. malyonga`,
+- Shahidi wa MKOPESHAJI ni `Doricas Charles Malyonga` / `D.C. malyonga`,
   anawekwa kiotomatiki na haonekani kwenye fomu wala ukurasa wa kuhariri.
 - Usalama: akikaa **dakika 10 bila shughuli**, mfumo unamtoa kwenye kikao na
   kupakia upya ukurasa; ni lazima aingie tena na password yake.

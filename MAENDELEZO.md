@@ -261,10 +261,14 @@ npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM=
 - Saini ya mkopeshaji haiandikwi tena kiotomatiki: kuchapisha kabla ya saini kunaonyesha
   `DRAFT — MKOPESHAJI HAKUSAINI BADO`, nafasi ya saini iko wazi, na saini za zamani
   hazibadilishwi. Admin ana kitufe cha `Chapisha DRAFT (hajasaini)` kwenye Flask.
-- Shahidi wa mkopeshaji sasa ni `Doricas Charlse Malyonga` / `D.C. malyonga`.
+- Shahidi wa mkopeshaji sasa ni `Doricas Charles Malyonga` / `D.C. malyonga`.
   Migration `20261125100000_new_lender_witness.sql` imesasisha defaults, `app_settings`
   na mikataba yote bila kugusa `lender_sign`.
 - Akaunti za `comradedemafia@gmail.com` na `richardisaya522@gmail.com` ziko kama admin
   kwenye Flask na Supabase; password zao za awali hazijabadilishwa wala kuandikwa kwenye repo.
 - `docs/schema.sql` imesaniliwa ili isirudishe `sign_lender` ya zamani wala kutumia chapa
   kama MKOPESHAJI kwenye mikataba mipya. Cache-bust imepanda kuwa `20261125b`.
+- Tahajia ya shahidi imerekebishwa kuwa `Doricas Charles Malyonga` / `D.C. malyonga`
+  kwa migration `20261125110000_correct_lender_witness_spelling.sql`; cache-bust `20261125c`.
+- Mkopo #2 uliokataliwa wa Amiri Kassim Mongi (`0617494304`) umefutwa pamoja na mkataba
+  wake. Mkopo #1 ulioidhinishwa, malipo yake na mkataba wake vimebaki.

@@ -7,7 +7,7 @@ window.APP_CONFIG = {
   SUPABASE_ANON_KEY: "sb_publishable_q4N-ddNILt8SMgvvKBV8tw_U9lx2GAy",
   BRAND: "ZABURI YA 23 MICROFINANCE",
   LENDER_NAME: "Anthony Charles Mwanjoka",
-  LENDER_WITNESS: "Doricas Charlse Malyonga",
+  LENDER_WITNESS: "Doricas Charles Malyonga",
   LENDER_WITNESS_SIGN: "D.C. malyonga",
   MIN_LOAN: 50000,
   MAX_LOAN: 2000000,

@@ -75,7 +75,7 @@ MIN_LOAN, MAX_LOAN, MAX_MONTHS = 50_000, 2_000_000, 24   # mipaka ya maombi ya w
 MAX_ACTIVE_LOANS = 2   # idadi ya juu ya mikopo inayoendelea (haijalipwa) kwa mteja
 BRAND = "ZABURI YA 23 MICROFINANCE"   # jina la biashara / online identity
 LENDER_NAME = "Anthony Charles Mwanjoka"   # MKOPESHAJI kwenye mkataba
-LENDER_WITNESS = "Doricas Charlse Malyonga"
+LENDER_WITNESS = "Doricas Charles Malyonga"
 LENDER_WITNESS_SIGN = "D.C. malyonga"
 
 # Pesa = namba kamili (TZS), si desimali.

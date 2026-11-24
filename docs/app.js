@@ -1076,6 +1076,7 @@
     const lender = agr.lender || CFG.LENDER_NAME;
     const lenderWitness = CFG.LENDER_WITNESS || "-";
     const lenderSign = agr.lender_sign || "";
+    const draft = !(lenderSign || "").trim();
     const lenderWitnessSign = CFG.LENDER_WITNESS_SIGN || displaySign(agr.lender_witness_sign, lenderWitness);
     const html = `<!doctype html><html lang="sw"><head><meta charset="utf-8">
       <title>Mkataba #${loan.id} | ZABURI YA 23 MICROFINANCE</title>
@@ -1099,12 +1100,15 @@
         .sign .sig { font-style:italic; font-size:1.05rem; }
         .sign .sigline { display:inline-block; min-width:180px; border-bottom:1px solid #555; }
         .note { font-size:.78rem; color:#555; margin-top:1.4rem; border-top:1px solid #ccc; padding-top:.6rem; }
+        .draft { text-align:center; border:2px solid #b00020; color:#b00020; padding:.5rem;
+                 margin:0 0 1.2rem; font-weight:bold; letter-spacing:.04em; }
         button { display:block; margin:1.6rem auto 0; padding:.5rem 1.3rem; cursor:pointer; }
         @media print { button { display:none; } body { margin:0; padding:0; } .sign td { height:96px; } }
       </style></head><body>
       <div class="brand"><em>ZABURI YA 23 MICROFINANCE</em></div>
       <h1>Mkataba wa Kukopeshana Fedha kwa Riba</h1>
       <div class="sub">Namba ya mkataba: AGR-${String(loan.id).padStart(5, "0")} &middot; Mkopo #${loan.id}</div>
+      ${draft ? `<div class="draft">DRAFT — MKOPESHAJI HAKUSAINI BADO</div>` : ""}
 
       <p>Mkataba huu umetiwa saini leo tarehe <b>${esc(signedOn)}</b> mahali <b>${esc(place)}</b>,
         kwa hati ya <b>MKOPESHAJI</b> ambaye ni <b>${esc(lender)}</b>
@@ -1168,7 +1172,7 @@
         <thead><tr><th style="width:30%">Naibu</th><th style="width:35%">Jina</th><th>Sahihi</th></tr></thead>
         <tbody>
           <tr><td><b>MKOPESHAJI</b></td><td>${esc(lender)}</td>
-            <td class="sig">${esc(lenderSign)}</td></tr>
+            <td class="sig"><span class="sigline">${esc(lenderSign)}</span></td></tr>
           <tr><td><b>SHAHIDI WA MKOPESHAJI</b></td><td>${esc(lenderWitness)}</td>
             <td class="sig">${esc(lenderWitnessSign)}</td></tr>
           <tr><td><b>MKOPAJI</b></td><td>${esc(borrower)}</td>
@@ -1529,8 +1533,9 @@
         <h3 class="mb-0">Mkopo #${loan.id}
           <span class="badge ${badge(loan.decision === "approved" ? b.status : loan.decision)}">
             ${statusTxt(loan.decision === "approved" ? b.status : loan.decision)}</span></h3>
-        ${agr ? `<button class="btn btn-outline-secondary btn-sm" id="printLoanBtn">
-          <i class="bi bi-printer"></i> Chapisha mkataba</button>` : ""}
+        ${agr ? `<button class="btn btn-outline-secondary btn-sm" id="printLoanBtn"
+          title="${!(agr.lender_sign || "").trim() ? "Mkopeshaji hajasaini; mkataba ni DRAFT" : "Chapisha mkataba"}">
+          <i class="bi bi-printer"></i> ${!(agr.lender_sign || "").trim() ? "Chapisha DRAFT" : "Chapisha mkataba"}</button>` : ""}
       </div>
       ${statusAlert}
       ${contractSectionHtml(loan, agr, cust, b)}

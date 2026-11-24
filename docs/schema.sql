@@ -63,8 +63,8 @@ create table if not exists public.agreements (
   signed_on date,
   accepted boolean not null default false,
   lender text default 'Anthony Charles Mwanjoka',
-  lender_witness text default 'Baraka Charles Mlayakado',
-  lender_witness_sign text default 'B.C. mlyakado',
+  lender_witness text default 'Doricas Charlse Malyonga',
+  lender_witness_sign text default 'D.C. malyonga',
   lender_sign text default '',
   guarantor text default '',
   guarantor_phone text default '',
@@ -404,23 +404,43 @@ begin
   perform public.audit_write('agreement.borrower_sign', 'loan#' || p_loan_id, p_sign);
 end; $$;
 
-create or replace function public.sign_lender(p_loan_id bigint, p_sign text, p_witness text)
-returns void language plpgsql security definer set search_path = public as $$
+create or replace function public.sign_lender(
+  p_loan_id bigint, p_lender_name text, p_sign text
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_words text[];
+  v_name text;
+  v_sign text := btrim(coalesce(p_sign, ''));
+  v_short text;
 begin
   if not public.is_admin() then raise exception 'Ruhusa imekataliwa.'; end if;
   if not exists(select 1 from public.loans where id = p_loan_id and decision = 'approved') then
     raise exception 'Mkopo haupo au haujaidhinishwa.';
   end if;
-  if nullif(btrim(p_sign), '') is null or nullif(btrim(p_witness), '') is null then
-    raise exception 'Jaza saini na shahidi wa mkopeshaji.';
+  if not exists(select 1 from public.agreements where loan_id = p_loan_id and accepted) then
+    raise exception 'Mteja hajasaini mkataba bado.';
   end if;
-  insert into public.agreements(loan_id, lender, lender_witness, lender_sign)
-    values (p_loan_id, 'ZABURI YA 23 MICROFINANCE', p_witness, p_sign)
-    on conflict (loan_id) do update set
-      lender='ZABURI YA 23 MICROFINANCE',
-      lender_witness = excluded.lender_witness,
-      lender_sign = excluded.lender_sign;
-  perform public.audit_write('agreement.lender_sign', 'loan#' || p_loan_id, p_sign);
+
+  v_words := string_to_array(
+    lower(btrim(regexp_replace(coalesce(p_lender_name, ''), '\s+', ' ', 'g'))), ' ');
+  if coalesce(array_length(v_words, 1), 0) <> 3 then
+    raise exception 'Jina la MKOPESHAJI liwe majina matatu hasa, mfano Anthony Charles Mwanjoka.';
+  end if;
+  v_name := initcap(v_words[1]) || ' ' || initcap(v_words[2]) || ' ' || initcap(v_words[3]);
+
+  v_short := upper(left(v_words[1], 1)) || '.' || upper(left(v_words[2], 1)) || '. ' || v_words[3];
+  if length(v_sign) < 2 or length(v_sign) > 80 or lower(v_sign) <> lower(v_short) then
+    raise exception 'Saini ya MKOPESHAJI iwe kifupi cha majina yake tu: %.', v_short;
+  end if;
+
+  update public.agreements set
+    lender = v_name,
+    lender_sign = v_short,
+    lender_witness = 'Doricas Charlse Malyonga',
+    lender_witness_sign = 'D.C. malyonga'
+  where loan_id = p_loan_id;
+
+  perform public.audit_write('agreement.lender_sign', 'loan#' || p_loan_id, v_sign);
 end; $$;
 
 -- Kumbuka: kubadilisha password ya mtumiaji mwingine hufanywa kwa Supabase Dashboard
@@ -617,26 +637,43 @@ begin
   perform public.audit_write('agreement.borrower_sign', 'loan#' || p_loan_id, btrim(p_sign));
 end; $$;
 
-create or replace function public.sign_lender(p_loan_id bigint, p_sign text, p_witness text)
-returns void language plpgsql security definer set search_path = public as $$
+create or replace function public.sign_lender(
+  p_loan_id bigint, p_lender_name text, p_sign text
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_words text[];
+  v_name text;
+  v_sign text := btrim(coalesce(p_sign, ''));
+  v_short text;
 begin
   if not public.is_admin() then raise exception 'Ruhusa imekataliwa.'; end if;
   if not exists(select 1 from public.loans where id = p_loan_id and decision = 'approved') then
     raise exception 'Mkopo haupo au haujaidhinishwa.';
   end if;
-  if length(btrim(coalesce(p_sign,''))) < 2 or length(coalesce(p_sign,'')) > 80 then
-    raise exception 'Saini iwe herufi 2 hadi 80.';
+  if not exists(select 1 from public.agreements where loan_id = p_loan_id and accepted) then
+    raise exception 'Mteja hajasaini mkataba bado.';
   end if;
-  if length(btrim(coalesce(p_witness,''))) < 3 or length(coalesce(p_witness,'')) > 80 then
-    raise exception 'Jina la shahidi liwe herufi 3 hadi 80.';
+
+  v_words := string_to_array(
+    lower(btrim(regexp_replace(coalesce(p_lender_name, ''), '\s+', ' ', 'g'))), ' ');
+  if coalesce(array_length(v_words, 1), 0) <> 3 then
+    raise exception 'Jina la MKOPESHAJI liwe majina matatu hasa, mfano Anthony Charles Mwanjoka.';
   end if;
-  insert into public.agreements(loan_id, lender, lender_witness, lender_sign)
-    values (p_loan_id, 'ZABURI YA 23 MICROFINANCE', btrim(p_witness), btrim(p_sign))
-    on conflict (loan_id) do update set
-      lender = 'ZABURI YA 23 MICROFINANCE',
-      lender_witness = excluded.lender_witness,
-      lender_sign = excluded.lender_sign;
-  perform public.audit_write('agreement.lender_sign', 'loan#' || p_loan_id, btrim(p_sign));
+  v_name := initcap(v_words[1]) || ' ' || initcap(v_words[2]) || ' ' || initcap(v_words[3]);
+
+  v_short := upper(left(v_words[1], 1)) || '.' || upper(left(v_words[2], 1)) || '. ' || v_words[3];
+  if length(v_sign) < 2 or length(v_sign) > 80 or lower(v_sign) <> lower(v_short) then
+    raise exception 'Saini ya MKOPESHAJI iwe kifupi cha majina yake tu: %.', v_short;
+  end if;
+
+  update public.agreements set
+    lender = v_name,
+    lender_sign = v_short,
+    lender_witness = 'Doricas Charlse Malyonga',
+    lender_witness_sign = 'D.C. malyonga'
+  where loan_id = p_loan_id;
+
+  perform public.audit_write('agreement.lender_sign', 'loan#' || p_loan_id, v_sign);
 end; $$;
 
 -- Mteja anawasilisha ombi pamoja na mkataba kamili
@@ -751,7 +788,7 @@ begin
     collateral_1, collateral_2, collateral_3, collateral_value
   ) values (
     v_id, v_bs, v_bw, v_place, p_signed_on,
-    true, 'ZABURI YA 23 MICROFINANCE', coalesce(v_gname, ''), coalesce(v_gphone, ''), v_gs, v_gw,
+    true, 'Anthony Charles Mwanjoka', coalesce(v_gname, ''), coalesce(v_gphone, ''), v_gs, v_gw,
     v_c1, v_c2, v_c3, p_collateral_value
   );
 
@@ -859,7 +896,7 @@ begin
     collateral_1, collateral_2, collateral_3, collateral_value
   ) values (
     p_loan_id, v_bs, v_bw, v_place, p_signed_on,
-    true, 'ZABURI YA 23 MICROFINANCE', coalesce(v_gname, ''), coalesce(v_gphone, ''), v_gs, v_gw,
+    true, 'Anthony Charles Mwanjoka', coalesce(v_gname, ''), coalesce(v_gphone, ''), v_gs, v_gw,
     v_c1, v_c2, v_c3, p_collateral_value
   )
   on conflict (loan_id) do update set
@@ -935,11 +972,14 @@ select pg_notify('pgrst', 'reload schema');
 --   supabase/migrations/20261124120000_remove_guarantor_witness.sql
 --   supabase/migrations/20261124130000_lender_identity_fixed_witness.sql
 --   supabase/migrations/20261125090000_block_customer_delete_with_records.sql
+--   supabase/migrations/20261125100000_new_lender_witness.sql
 -- Ya kwanza inaongeza saini za mashahidi wote kwenye mkataba. Ya pili inaweka
 -- shahidi wa mkopeshaji Baraka Charles Mlayakado / B.C. mlyakado; ya tatu
 -- inarekebisha herufi kubwa za saini zinazotokana na majina. Ya nne inaondoa
 -- SHAHIDI WA MDHAMINI kwenye mkataba. Ya tano inatenganisha chapa na MKOPESHAJI
 -- Anthony Charles Mwanjoka, inalazimisha jina matatu + saini kifupi kwa mkopo
 -- husika, na kufanya shahidi wa mkopeshaji kuwa wa kudumu bila kuharirika. Ya
--- sita inazuia kufuta mteja aliye na mikopo, malipo au mkataba.
+-- sita inazuia kufuta mteja aliye na mikopo, malipo au mkataba. Ya saba
+-- inamweka shahidi wa mkopeshaji Doricas Charlse Malyonga / D.C. malyonga
+-- kwenye mikataba yote bila kugusa saini ya mkopeshaji.
 -- ---------------------------------------------------------------------

@@ -50,7 +50,11 @@
            value="{{ LENDER_NAME }}" placeholder="Mfano: Anthony Charles Mwanjoka" maxlength="120" required></div>
       <div class="col-md-6"><input class="form-control" name="lender_sign"
            placeholder="Saini yako, mfano: A.C. mwanjoka" maxlength="80" required></div>
-      <div class="col-12"><button class="btn btn-warning"><i class="bi bi-pen"></i> Hifadhi saini ya mkopeshaji</button></div>
+      <div class="col-12 d-flex gap-2 flex-wrap">
+        <button class="btn btn-warning"><i class="bi bi-pen"></i> Hifadhi saini ya mkopeshaji</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('agreement_print', gid=agr.id) }}"
+           target="_blank"><i class="bi bi-printer"></i> Chapisha DRAFT (hajasaini)</a>
+      </div>
     </form>
   </div>
   {% else %}

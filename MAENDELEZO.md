@@ -258,3 +258,13 @@ npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM=
   `profiles`, `customers`, `loans`, `payments` na `agreements`) na kuandika audit.
 - Toleo la Supabase/GitHub Pages lina kitufe cha **Futa mteja** kwenye profile ya mteja;
   `app.js`/`config.js` zimepata cache-bust `20261125a`.
+- Saini ya mkopeshaji haiandikwi tena kiotomatiki: kuchapisha kabla ya saini kunaonyesha
+  `DRAFT — MKOPESHAJI HAKUSAINI BADO`, nafasi ya saini iko wazi, na saini za zamani
+  hazibadilishwi. Admin ana kitufe cha `Chapisha DRAFT (hajasaini)` kwenye Flask.
+- Shahidi wa mkopeshaji sasa ni `Doricas Charlse Malyonga` / `D.C. malyonga`.
+  Migration `20261125100000_new_lender_witness.sql` imesasisha defaults, `app_settings`
+  na mikataba yote bila kugusa `lender_sign`.
+- Akaunti za `comradedemafia@gmail.com` na `richardisaya522@gmail.com` ziko kama admin
+  kwenye Flask na Supabase; password zao za awali hazijabadilishwa wala kuandikwa kwenye repo.
+- `docs/schema.sql` imesaniliwa ili isirudishe `sign_lender` ya zamani wala kutumia chapa
+  kama MKOPESHAJI kwenye mikataba mipya. Cache-bust imepanda kuwa `20261125b`.

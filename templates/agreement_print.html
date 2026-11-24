@@ -23,6 +23,8 @@
     .sign .sig { font-style:italic; font-size:1.05rem; }
     .sign .sigline { display:inline-block; min-width:180px; border-bottom:1px solid #555; }
     .note { font-size:.78rem; color:#555; margin-top:1.4rem; border-top:1px solid #ccc; padding-top:.6rem; }
+    .draft { text-align:center; border:2px solid #b00020; color:#b00020; padding:.5rem;
+             margin:0 0 1.2rem; font-weight:bold; letter-spacing:.04em; }
     button { display:block; margin:1.6rem auto 0; padding:.5rem 1.3rem; cursor:pointer; }
     @media print { button { display:none; } body { margin:0; padding:0; } .sign td { height:96px; } }
   </style>
@@ -31,6 +33,9 @@
   <div class="brand"><em>ZABURI YA 23 MICROFINANCE</em></div>
   <h1>Mkataba wa Kukopeshana Fedha kwa Riba</h1>
   <div class="sub">Namba ya mkataba: AGR-{{ '%05d' % g.id }} &middot; Mkopo #{{ g.loan_id }}</div>
+  {% if not (g.lender_sign or '').strip() %}
+  <div class="draft">DRAFT — MKOPESHAJI HAKUSAINI BADO</div>
+  {% endif %}
 
   <p>
     Mkataba huu umetiwa saini leo tarehe <b>{{ g.signed_on }}</b> mwezi

@@ -98,11 +98,13 @@ aliye na mkopo, malipo au mkataba hafutiki; kizuizi hiko pia kwenye trigger ya d
 - Riba, jumla ya kulipa na tarehe ya mwisho huwekwa na ofisi wakati wa idhini;
   kabla ya hapo mkataba huonyesha "Itawekwa baada ya idhini".
 - Mkataba unaweza kuchapishwa (Ctrl+P / kuhifadhi PDF) na mteja na admin.
+  Kabla ya saini ya mkopeshaji, karatasi inaonyesha `DRAFT — MKOPESHAJI
+  HAKUSAINI BADO` na nafasi ya saini ibaki wazi; kuchapisha hakusaini mkataba.
 - Jina la chapa `ZABURI YA 23 MICROFINANCE` linatumika kwenye UI/kichwa pekee;
   MKOPESHAJI kwenye mkataba ni `Anthony Charles Mwanjoka`. Admin anajaza jina
   kamili (majina matatu hasa) na saini yake (`A.C. mwanjoka`) wakati wa kusaini
   mkopo husika; hazisahihishi mikataba mingine.
-- Shahidi wa MKOPESHAJI ni `Baraka Charles Mlayakado` / `B.C. mlyakado`,
+- Shahidi wa MKOPESHAJI ni `Doricas Charlse Malyonga` / `D.C. malyonga`,
   anawekwa kiotomatiki na haonekani kwenye fomu wala ukurasa wa kuhariri.
 - Usalama: akikaa **dakika 10 bila shughuli**, mfumo unamtoa kwenye kikao na
   kupakia upya ukurasa; ni lazima aingie tena na password yake.

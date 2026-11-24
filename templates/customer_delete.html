@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Futa mteja | ZABURI YA 23 MICROFINANCE{% endblock %}
+{% block content %}
+<a href="{{ url_for('customer', cid=c.id) }}" class="text-decoration-none">&larr; Mteja</a>
+<div class="card p-4 mt-3" style="max-width:720px">
+  <h4 class="mb-3"><i class="bi bi-trash"></i> Futa mteja</h4>
+  <p class="mb-3">Unakaribia kumfuta <b>{{ c.name }}</b> ({{ c.phone }}).</p>
+  <div class="alert alert-{{ 'warning' if blocked else 'danger' }} py-2">
+    {% if blocked %}
+    <i class="bi bi-lock"></i> {{ reason }}
+    <div class="small mt-1">Mikopo: <b>{{ counts['loans'] }}</b> &middot;
+      Malipo: <b>{{ counts['payments'] }}</b> &middot;
+      Mikataba: <b>{{ counts['agreements'] }}</b></div>
+    {% else %}
+    <i class="bi bi-exclamation-triangle"></i> Kitendo hiki hakirudishwi. Akaunti ya kuingia
+    ya mteja na taarifa zake zitafutwa.
+    {% endif %}
+  </div>
+  {% if not blocked %}
+  <form method="post" action="{{ url_for('customer_delete', cid=c.id) }}">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-danger"><i class="bi bi-trash"></i> Ndio, futa mteja</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('customer', cid=c.id) }}">Ghairi</a>
+    </div>
+  </form>
+  {% else %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('customer', cid=c.id) }}">Rudi</a>
+  {% endif %}
+</div>
+{% endblock %}

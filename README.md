@@ -10,8 +10,9 @@ Kuna matoleo mawili — **si data moja**:
 2. **Flask + SQLite** (`app.py`) — toleo la ndani (localhost) kwa majaribio pekee.
    Data yake iko kwenye `loans.db` ya kompyuta hiyo; **haishiriki data na mfumo rasmi**.
 
-> **Hali ya sasa (2026-11-14):** migrations zimepandishwa, Edge Functions `login` na
-> `admin-reset-password` zime-deploy, na mfumo rasmi uko
+> **Hali ya sasa (2026-11-25):** migrations zimepandishwa, Edge Functions `login`,
+> `admin-reset-password`, `complete-password-change` na `admin-delete-customer` zime-deploy,
+> na mfumo rasmi uko
 > https://richardisaya522-arch.github.io/Loan-Management-System/.
 > Admin: `officiallytony520@gmail.com` (namba `0750851093`).
 
@@ -70,7 +71,12 @@ Fungua http://127.0.0.1:5000
 npx.cmd --yes supabase@latest functions deploy login --no-verify-jwt --use-api --yes
 npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --yes
 npx.cmd --yes supabase@latest functions deploy complete-password-change --use-api --yes
+npx.cmd --yes supabase@latest functions deploy admin-delete-customer --use-api --yes
 ```
+
+Admin anapofuta mteja, akaunti yake ya kuingia na taarifa zake zinaondolewa. Mteja
+aliye na mkopo, malipo au mkataba hafutiki; kizuizi hiko pia kwenye trigger ya database
+`prevent_customer_delete_with_records` (migration `20261125090000`).
 
 ### 5b. Email ya password ya muda (Resend)
 - Admin anapoweka upya password ya mteja, mfumo hutengeneza password ya muda, kuiweka

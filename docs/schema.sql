@@ -142,6 +142,36 @@ drop policy if exists customers_delete on public.customers;
 create policy customers_delete on public.customers for delete to authenticated
   using (public.is_admin());
 
+-- Mteja aliye na rekodi za fedha hafutiki, hata kwa kufuta akaunti ya auth.
+create or replace function public.prevent_customer_delete_with_records()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_count int;
+begin
+  select count(*) into v_count from public.loans where customer_id = old.id;
+  if v_count > 0 then
+    raise exception 'Mteja ana mikopo, malipo au mkataba; haiwezi kufutwa kabla ya rekodi hizo kuondolewa.';
+  end if;
+  select count(*) into v_count
+    from public.payments p join public.loans l on l.id = p.loan_id
+   where l.customer_id = old.id;
+  if v_count > 0 then
+    raise exception 'Mteja ana malipo; haiwezi kufutwa kabla ya rekodi hizo kuondolewa.';
+  end if;
+  select count(*) into v_count
+    from public.agreements a join public.loans l on l.id = a.loan_id
+   where l.customer_id = old.id;
+  if v_count > 0 then
+    raise exception 'Mteja ana mkataba; haiwezi kufutwa kabla ya rekodi hizo kuondolewa.';
+  end if;
+  return old;
+end; $$;
+drop trigger if exists prevent_customer_delete_with_records on public.customers;
+create trigger prevent_customer_delete_with_records
+  before delete on public.customers
+  for each row execute function public.prevent_customer_delete_with_records();
+revoke all on function public.prevent_customer_delete_with_records() from public, anon, authenticated;
+
 -- loans
 drop policy if exists loans_select on public.loans;
 create policy loans_select on public.loans for select to authenticated
@@ -904,10 +934,12 @@ select pg_notify('pgrst', 'reload schema');
 --   supabase/migrations/20261123131000_signature_initials_case.sql
 --   supabase/migrations/20261124120000_remove_guarantor_witness.sql
 --   supabase/migrations/20261124130000_lender_identity_fixed_witness.sql
+--   supabase/migrations/20261125090000_block_customer_delete_with_records.sql
 -- Ya kwanza inaongeza saini za mashahidi wote kwenye mkataba. Ya pili inaweka
 -- shahidi wa mkopeshaji Baraka Charles Mlayakado / B.C. mlyakado; ya tatu
 -- inarekebisha herufi kubwa za saini zinazotokana na majina. Ya nne inaondoa
 -- SHAHIDI WA MDHAMINI kwenye mkataba. Ya tano inatenganisha chapa na MKOPESHAJI
 -- Anthony Charles Mwanjoka, inalazimisha jina matatu + saini kifupi kwa mkopo
--- husika, na kufanya shahidi wa mkopeshaji kuwa wa kudumu bila kuharirika.
+-- husika, na kufanya shahidi wa mkopeshaji kuwa wa kudumu bila kuharirika. Ya
+-- sita inazuia kufuta mteja aliye na mikopo, malipo au mkataba.
 -- ---------------------------------------------------------------------

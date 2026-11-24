@@ -1103,6 +1103,37 @@ def customer(cid):
     return render_template("customer.html", c=c, loans=loans, has_user=has_user)
 
 
+@app.route("/customers/<int:cid>/delete", methods=["GET", "POST"])
+@admin_required
+def customer_delete(cid):
+    db = get_db()
+    c = db.execute("SELECT * FROM customers WHERE id=?", (cid,)).fetchone() or abort(404)
+    counts = db.execute("""SELECT
+        (SELECT COUNT(*) FROM loans WHERE customer_id=?) AS loans,
+        (SELECT COUNT(*) FROM payments p JOIN loans l ON l.id=p.loan_id
+           WHERE l.customer_id=?) AS payments,
+        (SELECT COUNT(*) FROM agreements a JOIN loans l ON l.id=a.loan_id
+           WHERE l.customer_id=?) AS agreements""", (cid, cid, cid)).fetchone()
+    blocked = bool(counts["loans"] or counts["payments"] or counts["agreements"])
+    reason = "Mteja ana mikopo, malipo au mkataba; futa kwanza rekodi hizo kabla ya kumfuta."
+
+    if request.method == "POST":
+        if blocked:
+            audit("customer.delete_blocked", f"customer#{cid}", reason)
+            flash(reason, "danger")
+            return redirect(url_for("customer", cid=cid))
+        label = f"{c['name']} ({c['phone']})"
+        db.execute("DELETE FROM users WHERE customer_id=? AND role='customer'", (cid,))
+        db.execute("DELETE FROM customers WHERE id=?", (cid,))
+        db.commit()
+        audit("customer.delete", f"customer#{cid}", label)
+        flash(f"Mteja {label} amefutwa.", "warning")
+        return redirect(url_for("customers"))
+
+    return render_template("customer_delete.html", c=c, counts=counts,
+                           blocked=blocked, reason=reason)
+
+
 @app.route("/customers/<int:cid>/edit", methods=["GET", "POST"])
 @admin_required
 def customer_edit(cid):

@@ -1881,8 +1881,12 @@
     v.innerHTML = `<a href="#/customers" class="text-decoration-none">&larr; Wateja</a>
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-3">
         <h3 class="mb-0">${esc(c.name || c.phone)}</h3>
-        ${c.user_id ? `<button class="btn btn-outline-warning btn-sm" id="resetCustomerPassword">
-          <i class="bi bi-key"></i> Weka upya password</button>` : ""}
+        <div class="d-flex gap-2">
+          ${c.user_id ? `<button class="btn btn-outline-warning btn-sm" id="resetCustomerPassword">
+            <i class="bi bi-key"></i> Weka upya password</button>` : ""}
+          <button class="btn btn-outline-danger btn-sm" id="deleteCustomer">
+            <i class="bi bi-trash"></i> Futa mteja</button>
+        </div>
       </div>
       <div class="card p-3 mb-3"><div class="row g-3 small">
         ${kv("Simu", c.phone)}${kv("Barua pepe", c.email)}${kv("Anwani", c.address)}${kv("Kazi", c.occupation)}
@@ -1916,6 +1920,19 @@
         emailSent: !!data.email_sent,
         emailMessage: data.email_message || ""
       });
+    });
+
+    const delBtn = document.getElementById("deleteCustomer");
+    if (delBtn) delBtn.addEventListener("click", async () => {
+      if (!confirm(`Futa mteja ${c.name || c.phone}? Kitendo hiki hakirudishwi.`)) return;
+      delBtn.disabled = true;
+      const { error } = await sb.functions.invoke("admin-delete-customer", {
+        body: { customer_id: c.id }
+      });
+      delBtn.disabled = false;
+      if (error) return toast(await fnError(error, "Imeshindikana kufuta mteja."), "danger");
+      toast(`Mteja ${c.name || c.phone} amefutwa.`, "warning");
+      location.hash = "#/customers";
     });
   }
 

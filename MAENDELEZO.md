@@ -229,6 +229,7 @@ npx.cmd --yes supabase@latest db push --linked --yes
 npx.cmd --yes supabase@latest functions deploy login --no-verify-jwt --use-api --yes
 npx.cmd --yes supabase@latest functions deploy admin-reset-password --use-api --yes
 npx.cmd --yes supabase@latest functions deploy complete-password-change --use-api --yes
+npx.cmd --yes supabase@latest functions deploy admin-delete-customer --use-api --yes
 
 # Email ya password ya muda (Resend)
 npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM="ZABURI YA 23 <no-reply@domain-yako>" APP_URL="https://richardisaya522-arch.github.io/Loan-Management-System/" --project-ref ghxahscpxobuoorgyedn
@@ -244,3 +245,16 @@ npx.cmd --yes supabase@latest secrets set RESEND_API_KEY=re_xxxxxxxx EMAIL_FROM=
 - Migration: `20261124120000_remove_guarantor_witness.sql` na
   `20261124130000_lender_identity_fixed_witness.sql`.
 - Saini ya shahidi wa mkopaji sasa inaonekana wazi kwenye karatasi ya kuchapisha.
+
+## Sasisho 2026-11-25
+- Admin ana sehemu ya kufuta mteja kwenye profile yake (Flask: `/customers/<id>/delete`).
+  Inaonyesha ukurasa wa uthibitisho kabla ya kufuta; hakuna inline JavaScript, hivyo
+  inafanya kazi hata kwa CSP kali.
+- Mteja aliye na mkopo, malipo au mkataba hafutiki. Kizuizi kiko kwenye Flask, kwenye
+  Edge Function `admin-delete-customer`, na kwenye database trigger
+  `prevent_customer_delete_with_records` (migration `20261125090000`).
+- Edge Function inathibitisha admin kutoka `profiles`, inakataza kufuta akaunti yake
+  mwenyewe au akaunti nyingine ya admin, kisha inafuta `auth.users` (cascade huondoa
+  `profiles`, `customers`, `loans`, `payments` na `agreements`) na kuandika audit.
+- Toleo la Supabase/GitHub Pages lina kitufe cha **Futa mteja** kwenye profile ya mteja;
+  `app.js`/`config.js` zimepata cache-bust `20261125a`.

@@ -10,6 +10,8 @@
         {{ 'Fomu imejazwa' if c.profile_done else 'Fomu bado haijajazwa' }}</span>
       <a class="btn btn-outline-primary btn-sm" href="{{ url_for('customer_edit', cid=c.id) }}">
         <i class="bi bi-pencil"></i> Hariri taarifa</a>
+      <a class="btn btn-outline-danger btn-sm" href="{{ url_for('customer_delete', cid=c.id) }}">
+        <i class="bi bi-trash"></i> Futa mteja</a>
       {% if has_user %}
       <form method="post" action="{{ url_for('reset_customer_password', cid=c.id) }}"
             onsubmit="return confirm('Weka upya password ya {{ c.name }}? Password ya muda itaonyeshwa.')">
